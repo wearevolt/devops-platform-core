@@ -65,21 +65,21 @@ async def get_argocd_token(user: str, password: str, endpoint: str = "localhost:
     # ArgoCD server uses HTTPS by default, even on port 8080
     async with httpx.AsyncClient(verify=False, timeout=30.0) as httpx_client:
         for protocol in ["https", "http"]:
-            try:
-                response = await httpx_client.post(
+        try:
+            response = await httpx_client.post(
                     f"{protocol}://{endpoint}/api/v1/session",
-                    headers={"Content-Type": "application/json"},
-                    content=json.dumps({"username": user, "password": password})
-                )
-                if response.status_code == 404:
-                    return None
-                elif response.is_success:
-                    return response.json()["token"]
+                headers={"Content-Type": "application/json"},
+                content=json.dumps({"username": user, "password": password})
+            )
+            if response.status_code == 404:
+                return None
+            elif response.is_success:
+                return response.json()["token"]
             except (httpx.ConnectError, httpx.RemoteProtocolError):
                 # Try next protocol
                 continue
-            except httpx.HTTPStatusError as e:
-                raise e
+        except httpx.HTTPStatusError as e:
+            raise e
     return None
 
 
@@ -148,19 +148,19 @@ async def delete_application(app_name: str, token: str, endpoint: str = "localho
     """
     async with httpx.AsyncClient(verify=False, timeout=30.0) as httpx_client:
         for protocol in ["https", "http"]:
-            try:
-                response = await httpx_client.delete(
+        try:
+            response = await httpx_client.delete(
                     f"{protocol}://{endpoint}/api/v1/applications/{app_name}?cascade=true",
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {token}"
-                    }
-                )
-                return response.is_success
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token}"
+                }
+            )
+            return response.is_success
             except (httpx.ConnectError, httpx.RemoteProtocolError):
                 continue
-            except httpx.HTTPStatusError as e:
-                raise e
+        except httpx.HTTPStatusError as e:
+            raise e
     return None
 
 
