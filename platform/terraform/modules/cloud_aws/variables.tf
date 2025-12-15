@@ -13,6 +13,84 @@ variable "cluster_network_cidr" {
   }
 }
 
+# Existing VPC configuration (optional)
+# If vpc_id is provided, the module will use existing VPC instead of creating a new one
+variable "vpc_id" {
+  type        = string
+  default     = ""
+  description = "(Optional) ID of existing VPC to use. If empty, a new VPC will be created."
+}
+
+variable "private_subnet_ids" {
+  type        = list(string)
+  default     = []
+  description = "(Optional) List of existing private subnet IDs for EKS worker nodes. Required if vpc_id is set."
+}
+
+variable "public_subnet_ids" {
+  type        = list(string)
+  default     = []
+  description = "(Optional) List of existing public subnet IDs for load balancers. Required if vpc_id is set."
+}
+
+variable "intra_subnet_ids" {
+  type        = list(string)
+  default     = []
+  description = "(Optional) List of existing intra/control plane subnet IDs. If empty and vpc_id is set, private_subnet_ids will be used."
+}
+
+variable "database_subnets" {
+  type        = list(string)
+  default     = []
+  description = "(Optional) List of existing database subnet IDs. If empty and vpc_id is set, private_subnet_ids will be used."
+}
+
+# ACM Certificate for ALB Ingress Controller / Gateway API
+variable "acm_certificate_arn" {
+  type        = string
+  default     = ""
+  description = "(Optional) ARN of ACM certificate for ALB Ingress Controller and Gateway API"
+}
+
+# Security Groups for EKS
+variable "cluster_security_group_id" {
+  type        = string
+  default     = ""
+  description = "(Optional) Existing security group ID to use for EKS cluster. If empty, a new one will be created."
+}
+
+variable "additional_cluster_security_group_ids" {
+  type        = list(string)
+  default     = []
+  description = "(Optional) List of additional security group IDs to attach to the EKS cluster"
+}
+
+variable "node_security_group_additional_rules" {
+  type        = any
+  default     = {}
+  description = "(Optional) Additional security group rules for EKS nodes"
+}
+
+# CloudWatch configuration
+variable "cloudwatch_log_group_retention_in_days" {
+  type        = number
+  default     = 7
+  description = "(Optional) Retention period for CloudWatch log group in days"
+}
+
+# EKS endpoint access
+variable "endpoint_public_access" {
+  type        = bool
+  default     = true
+  description = "(Optional) Whether the EKS cluster endpoint is publicly accessible"
+}
+
+variable "endpoint_private_access" {
+  type        = bool
+  default     = true
+  description = "(Optional) Whether the EKS cluster endpoint is privately accessible"
+}
+
 variable "az_count" {
   type    = number
   default = 3
@@ -24,7 +102,6 @@ variable "az_count" {
 
 variable "cluster_name" {
   type        = string
-  default     = "CGDevX"
   description = "(Required) Specifies the name of the EKS cluster."
   validation {
     condition     = (length(var.cluster_name) <= 16) && (length(var.cluster_name) >= 2)
@@ -38,7 +115,7 @@ variable "cluster_name" {
 
 variable "cluster_version" {
   type        = string
-  default     = "1.32"
+  default     = "1.34"
   description = "(Optional) Specifies the EKS Kubernetes version"
 }
 
@@ -75,18 +152,14 @@ variable "node_groups" {
 }
 
 variable "cluster_node_labels" {
-  type    = map(any)
-  default = {
-    provisioned-by = "cg-devx"
-  }
+  type        = map(any)
+  default     = {}
   description = "(Optional) EKS node labels"
 }
 
 variable "tags" {
-  type    = map(string)
-  default = {
-    provisioned-by = "cg-devx"
-  }
+  type        = map(string)
+  default     = {}
   description = "(Optional) Specifies the AWS resource tags"
 }
 

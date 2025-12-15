@@ -14,11 +14,11 @@ spec:
     helm:
       values: |-
         commonLabels:
-          cg-devx.cost-allocation.cost-center: platform
-          cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-          cg-devx.metadata.service: atlantis
-          cg-devx.metadata.chart-version: 5.17.2
-          cg-devx.metadata.version: 0.34.0
+          <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+          <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+          <PLATFORM_NAME_KEBAB>.metadata.service: atlantis
+          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 5.17.2
+          <PLATFORM_NAME_KEBAB>.metadata.version: 0.34.0
         statefulSet:
           annotations:
             secret.reloader.stakater.com/reload: "atlantis-envs-secrets"
@@ -32,11 +32,11 @@ spec:
             <K8S_ROLE_MAPPING>: "<IAC_PR_AUTOMATION_IAM_ROLE_RN>"
         podTemplate:
           labels:
-            cg-devx.cost-allocation.cost-center: platform
-            cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-            cg-devx.metadata.service: atlantis
-            cg-devx.metadata.chart-version: 5.4.2
-            cg-devx.metadata.version: 0.28.5
+            <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+            <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+            <PLATFORM_NAME_KEBAB>.metadata.service: atlantis
+            <PLATFORM_NAME_KEBAB>.metadata.chart-version: 5.4.2
+            <PLATFORM_NAME_KEBAB>.metadata.version: 0.28.5
             # <ADDITIONAL_LABELS>
         resources:
           limits:
@@ -48,14 +48,18 @@ spec:
         ingress:
           enabled: true
           annotations:
-            cert-manager.io/cluster-issuer: "letsencrypt-prod"
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/certificate-arn: <ACM_CERTIFICATE_ARN>
+            alb.ingress.kubernetes.io/group.name: <ALB_INGRESS_GROUP_NAME>
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/security-groups: <ALB_SECURITY_GROUPS>
+            alb.ingress.kubernetes.io/subnets: <ALB_PUBLIC_SUBNETS>
+            alb.ingress.kubernetes.io/tags: environment=<PRIMARY_CLUSTER_NAME>,provisioned-by=<PLATFORM_NAME_KEBAB>
+            alb.ingress.kubernetes.io/target-type: ip
+            alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
           path: /
           host: <IAC_PR_AUTOMATION_INGRESS_URL>
-          ingressClassName: "nginx"
-          tls:
-            - secretName: atlantis-tls
-              hosts:
-                - <IAC_PR_AUTOMATION_INGRESS_URL>
+          ingressClassName: "alb"
         basicAuthSecretName: atlantis-basic-auth-secrets
         defaultTFVersion: <TERRAFORM_VERSION>
         loadEnvFromSecrets:

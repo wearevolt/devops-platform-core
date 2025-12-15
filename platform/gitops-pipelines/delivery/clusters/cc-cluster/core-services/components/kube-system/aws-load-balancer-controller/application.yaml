@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  project: core
+  source:
+    repoURL: https://aws.github.io/eks-charts
+    chart: aws-load-balancer-controller
+    targetRevision: <AWS_LOAD_BALANCER_CONTROLLER_VERSION>
+    helm:
+      releaseName: aws-load-balancer-controller
+      valueFiles:
+        - $values/clusters/<PRIMARY_CLUSTER_NAME>/core-services/components/kube-system/aws-load-balancer-controller/values.yaml
+  sources:
+    - repoURL: https://aws.github.io/eks-charts
+      chart: aws-load-balancer-controller
+      targetRevision: <AWS_LOAD_BALANCER_CONTROLLER_VERSION>
+      helm:
+        releaseName: aws-load-balancer-controller
+        valueFiles:
+          - $values/clusters/<PRIMARY_CLUSTER_NAME>/core-services/components/kube-system/aws-load-balancer-controller/values.yaml
+    - repoURL: <GIT_REPOSITORY_GIT_URL>
+      targetRevision: HEAD
+      ref: values
+  destination:
+    name: in-cluster
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+

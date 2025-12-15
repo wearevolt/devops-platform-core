@@ -16,7 +16,8 @@ provider "vault" {
 
 locals {
   cluster_name   = "<PRIMARY_CLUSTER_NAME>"
-  provisioned_by = "cgdevx"
+  platform_name  = "<PLATFORM_NAME>"
+  provisioned_by = "<PLATFORM_NAME_KEBAB>"
 }
 
 module "secrets" {
@@ -34,7 +35,6 @@ module "secrets" {
   cluster_ssh_public_key        = var.cluster_ssh_public_key
   tf_backend_storage_access_key = var.tf_backend_storage_access_key
   vcs_runner_token              = var.vcs_runner_token
-  vcs_k8s_agent_token           = var.vcs_k8s_agent_token
   cd_webhook_secret                       = var.cd_webhook_secret
   cloud_binary_artifacts_store_access_key = var.cloud_binary_artifacts_store_access_key
   image_registry_auth                     = var.image_registry_auth

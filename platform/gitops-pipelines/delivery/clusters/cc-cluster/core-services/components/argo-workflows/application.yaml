@@ -10,21 +10,21 @@ spec:
   project: core
   source:
     repoURL: https://argoproj.github.io/argo-helm
-    targetRevision: 0.45.15
+    targetRevision: <ARGO_WORKFLOWS_VERSION>
     helm:
       valuesObject:
         commonLabels:
-          cg-devx.cost-allocation.cost-center: platform
-          cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-          cg-devx.metadata.service: continuous-integration.argo-workflow
-          cg-devx.metadata.chart-version: 0.45.15
-          cg-devx.metadata.version: 3.6.7
+          <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+          <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+          <PLATFORM_NAME_KEBAB>.metadata.service: continuous-integration.argo-workflow
+          <PLATFORM_NAME_KEBAB>.metadata.chart-version: <ARGO_WORKFLOWS_VERSION>
+          <PLATFORM_NAME_KEBAB>.metadata.version: 3.6.7
         singleNamespace: false
         nameOverride: argo
         controller:
           instanceID:
             enabled: true
-            explicitID: "cgdevx"
+            explicitID: "<PLATFORM_NAME>"
           workflowDefaults:
             spec:
               podGC:
@@ -86,15 +86,20 @@ spec:
               value: 'true'
           ingress:
             enabled: true
-            ingressClassName: nginx
+            ingressClassName: alb
             annotations:
-              cert-manager.io/cluster-issuer: letsencrypt-prod
+              alb.ingress.kubernetes.io/scheme: internet-facing
+              alb.ingress.kubernetes.io/certificate-arn: <ACM_CERTIFICATE_ARN>
+              alb.ingress.kubernetes.io/group.name: <ALB_INGRESS_GROUP_NAME>
+              alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+              alb.ingress.kubernetes.io/security-groups: <ALB_SECURITY_GROUPS>
+              alb.ingress.kubernetes.io/subnets: <ALB_PUBLIC_SUBNETS>
+              alb.ingress.kubernetes.io/tags: environment=<PRIMARY_CLUSTER_NAME>,provisioned-by=<PLATFORM_NAME_KEBAB>
+              alb.ingress.kubernetes.io/target-type: ip
+              alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
             hosts: [<CI_INGRESS_URL>]
             paths: [/]
             pathType: Prefix
-            tls:
-              - secretName: argo-tls
-                hosts: [<CI_INGRESS_URL>]
           sso:
             enabled: true
             issuer: https://<OIDC_PROVIDER_URL>

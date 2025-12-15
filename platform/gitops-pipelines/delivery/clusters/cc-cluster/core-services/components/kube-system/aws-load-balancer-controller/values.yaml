@@ -1,0 +1,123 @@
+replicaCount: 2
+
+revisionHistoryLimit: 10
+
+image:
+  repository: public.ecr.aws/eks/aws-load-balancer-controller
+  tag: <AWS_LOAD_BALANCER_CONTROLLER_IMAGE_TAG>
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: <ALB_CONTROLLER_IRSA_ROLE_ARN>
+  automountServiceAccountToken: true
+
+rbac:
+  create: true
+
+podSecurityContext:
+  fsGroup: 65534
+
+securityContext:
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+
+terminationGracePeriodSeconds: 10
+
+priorityClassName: system-cluster-critical
+
+configureDefaultAffinity: true
+
+enableCertManager: false
+
+# Cluster configuration
+clusterName: <PRIMARY_CLUSTER_NAME>
+region: <CLOUD_REGION>
+vpcId: <VPC_ID>
+
+# Ingress class configuration
+ingressClass: alb
+createIngressClassResource: true
+
+ingressClassParams:
+  create: true
+  spec: {}
+
+ingressClassConfig:
+  default: false
+
+# Default target type (ip for VPC CNI, instance for overlay CNIs)
+defaultTargetType: ip
+
+# Enable pod readiness gate injection
+enablePodReadinessGateInject: true
+
+# Enable AWS Shield, WAF, WAFv2 addons
+enableShield: true
+enableWaf: true
+enableWafv2: true
+
+# Enable EndpointSlices for better performance
+enableEndpointSlices: true
+
+# Enable backend security group
+enableBackendSecurityGroup: true
+
+# Log level
+logLevel: info
+
+# Webhook configuration
+webhookConfig:
+  disableIngressValidation: false
+
+keepTLSSecret: true
+
+# Liveness probe
+livenessProbe:
+  failureThreshold: 2
+  httpGet:
+    path: /healthz
+    port: 61779
+    scheme: HTTP
+  initialDelaySeconds: 30
+  timeoutSeconds: 10
+
+# Readiness probe
+readinessProbe:
+  failureThreshold: 2
+  httpGet:
+    path: /readyz
+    port: 61779
+    scheme: HTTP
+  successThreshold: 1
+  initialDelaySeconds: 10
+  timeoutSeconds: 10
+
+# Default tags for AWS resources
+defaultTags:
+  provisioned-by: <PLATFORM_NAME_KEBAB>
+  cluster: <PRIMARY_CLUSTER_NAME>
+
+# Pod labels
+podLabels:
+  app: aws-load-balancer-controller
+
+# Service mutator webhook
+enableServiceMutatorWebhook: true
+
+serviceMutatorWebhookConfig:
+  failurePolicy: Fail
+  operations:
+    - CREATE
+
+# Resources (uncomment and adjust as needed)
+# resources:
+#   limits:
+#     cpu: 200m
+#     memory: 256Mi
+#   requests:
+#     cpu: 100m
+#     memory: 128Mi
+

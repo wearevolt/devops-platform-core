@@ -19,7 +19,7 @@ module "iac_pr_automation_sa" {
   ]
   namespace = "atlantis"
   tags      = merge(local.tags, {
-    "cg-devx.metadata.service" : "iac-pr-automation"
+    "metadata.service" : "iac-pr-automation"
   })
 }
 
@@ -34,7 +34,7 @@ module "ci_sa" {
   role_definitions        = [{ "name" = "Contributor", "scope" = "" }]
   namespace               = "argo"
   tags                    = merge(local.tags, {
-    "cg-devx.metadata.service" : "continuous-integration"
+    "metadata.service" : "continuous-integration"
   })
 }
 
@@ -49,7 +49,7 @@ module "cert_manager_sa" {
   role_definitions        = [{ "name" = "Contributor", "scope" = "" }]
   namespace               = "cert-manager"
   tags                    = merge(local.tags, {
-    "cg-devx.metadata.service" : "cert-manager"
+    "metadata.service" : "cert-manager"
   })
 }
 
@@ -64,7 +64,7 @@ module "external_dns_sa" {
   role_definitions        = [{ "name" = "Contributor", "scope" = "" }]
   namespace               = "external-dns"
   tags                    = merge(local.tags, {
-    "cg-devx.metadata.service" : "external-dns"
+    "metadata.service" : "external-dns"
   })
 }
 
@@ -79,7 +79,7 @@ module "secret_manager_sa" {
   role_definitions        = [{ "name" = "Key Vault Administrator", "scope" = "" }]
   namespace               = "vault"
   tags                    = merge(local.tags, {
-    "cg-devx.metadata.service" : "secret-manager"
+    "metadata.service" : "secret-manager"
   })
 }
 
@@ -95,7 +95,7 @@ module "cluster_autoscaler_sa" {
   role_definitions        = [{ "name" = "Contributor", "scope" = "" }]
   namespace               = "cluster-autoscaler"
   tags                    = merge(local.tags, {
-    "cg-devx.metadata.service" : "cluster-autoscaler"
+    "metadata.service" : "cluster-autoscaler"
   })
 }
 
@@ -124,7 +124,7 @@ module "backups_manager_sa" {
   ]
   namespace = "velero"
   tags      = merge(local.tags, {
-    "cg-devx.metadata.service" : "backups-manager"
+    "metadata.service" : "backups-manager"
   })
   depends_on = [azurerm_storage_account.storage_account]
 }

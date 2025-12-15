@@ -18,11 +18,11 @@ spec:
       releaseName: kyverno-policies
       values: |
         customLabels:
-          cg-devx.cost-allocation.cost-center: platform
-          cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-          cg-devx.metadata.service: policy-engine.kyverno-policies
-          cg-devx.metadata.chart-version: 3.4.1
-          cg-devx.metadata.version: 1.14.1
+          <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+          <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+          <PLATFORM_NAME_KEBAB>.metadata.service: policy-engine.kyverno-policies
+          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 3.4.1
+          <PLATFORM_NAME_KEBAB>.metadata.version: 1.14.1
   syncPolicy:
     automated:
       prune: true

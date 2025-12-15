@@ -7,9 +7,17 @@ output "network_id" {
 }
 
 ################################################################################
+# ACM Certificate
+################################################################################
+output "acm_certificate_arn" {
+  value       = module.hosting-provider.acm_certificate_arn
+  description = "ACM certificate ARN for ALB Ingress Controller"
+}
+
+################################################################################
 # IAM roles
 ################################################################################
-output "iam_ci_role" {
+output "ci_role" {
   value       = module.hosting-provider.iam_ci_irsa_role
   description = "Continuous Integration IAM role for K8s service account"
 }
@@ -17,10 +25,7 @@ output "iac_pr_automation_role" {
   value       = module.hosting-provider.iac_pr_automation_irsa_role
   description = "IaC PR automation IAM role for a K8s service account"
 }
-output "cert_manager_role" {
-  value       = module.hosting-provider.cert_manager_irsa_role
-  description = "Certificate Manager IAM role for a K8s service account"
-}
+# cert_manager_role removed - cert-manager component is not used
 output "external_dns_role" {
   value       = module.hosting-provider.external_dns_irsa_role
   description = "External DNS IAM role for a K8s service account"
@@ -36,6 +41,10 @@ output "cluster_autoscaler_role" {
 output "backups_manager_role" {
   value       = module.hosting-provider.backups_manager_irsa_role
   description = "Cluster Backup Manager IAM role for a K8s service account"
+}
+output "alb_controller_role" {
+  value       = module.hosting-provider.alb_controller_irsa_role
+  description = "AWS Load Balancer Controller IAM role for a K8s service account"
 }
 
 ################################################################################

@@ -18,11 +18,11 @@ spec:
          pullSecrets:
           - name: docker-config
         additionalLabels:
-          cg-devx.cost-allocation.cost-center: platform
-          cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-          cg-devx.metadata.service: scaler.cluster-autoscaler
-          cg-devx.metadata.chart-version: 9.46.6
-          cg-devx.metadata.version: 1.32.0
+          <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+          <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+          <PLATFORM_NAME_KEBAB>.metadata.service: scaler.cluster-autoscaler
+          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 9.46.6
+          <PLATFORM_NAME_KEBAB>.metadata.version: 1.32.0
         autoDiscovery:
           clusterName: <PRIMARY_CLUSTER_NAME>
           tags:

@@ -11,7 +11,7 @@ module "argo" {
   source = "./oidc-client"
 
   depends_on = [
-    vault_identity_oidc_provider.cgdevx
+    vault_identity_oidc_provider.platform
   ]
 
   app_name               = "argo"
@@ -27,7 +27,7 @@ module "argocd" {
   source = "./oidc-client"
 
   depends_on = [
-    vault_identity_oidc_provider.cgdevx
+    vault_identity_oidc_provider.platform
   ]
 
   app_name               = "argocd"
@@ -43,7 +43,7 @@ module "grafana" {
   source = "./oidc-client"
 
   depends_on = [
-    vault_identity_oidc_provider.cgdevx
+    vault_identity_oidc_provider.platform
   ]
 
   app_name               = "grafana"
@@ -59,7 +59,7 @@ module "harbor" {
   source = "./oidc-client"
 
   depends_on = [
-    vault_identity_oidc_provider.cgdevx
+    vault_identity_oidc_provider.platform
   ]
 
   app_name               = "harbor"
@@ -75,7 +75,7 @@ module "sonarqube" {
   source = "./oidc-client"
 
   depends_on = [
-    vault_identity_oidc_provider.cgdevx
+    vault_identity_oidc_provider.platform
   ]
 
   app_name               = "sonarqube"
@@ -91,7 +91,7 @@ module "oauth2_backstage" {
   source = "./oidc-client"
 
   depends_on = [
-    vault_identity_oidc_provider.cgdevx
+    vault_identity_oidc_provider.platform
   ]
 
   app_name               = "oauth2_backstage"

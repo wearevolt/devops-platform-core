@@ -26,6 +26,7 @@ provider "sonarqube" {
   user = "admin"
   pass = var.code_quality_admin_password
   host = local.code_quality_url
+  insecure = true
 }
 
 provider "restapi" {

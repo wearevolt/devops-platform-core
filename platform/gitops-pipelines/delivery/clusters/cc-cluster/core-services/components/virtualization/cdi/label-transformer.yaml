@@ -4,10 +4,10 @@ kind: LabelTransformer
 metadata:
   name: cdi-common-labels
 labels:
-  cg-devx.cost-allocation.cost-center: "platform"
-  cg-devx.metadata.owner: "<GITOPS_REPOSITORY_NAME>-admin"
-  cg-devx.metadata.service: "virtualization.cdi"
-  cg-devx.metadata.version: "1.54.2"
+  <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: "platform"
+  <PLATFORM_NAME_KEBAB>.metadata.owner: "<GITOPS_REPOSITORY_NAME>-admin"
+  <PLATFORM_NAME_KEBAB>.metadata.service: "virtualization.cdi"
+  <PLATFORM_NAME_KEBAB>.metadata.version: "1.54.2"
 fieldSpecs:
 - path: metadata/labels
   create: true

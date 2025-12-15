@@ -8,7 +8,7 @@ resource "random_string" "random_suffix" {
 
 module "artifacts_repository" {
   source = "terraform-aws-modules/s3-bucket/aws"
-  version = "4.11.0"
+  version = "5.9.1"
 
   bucket = "${local.name}-artifacts-repository-${random_string.random_suffix.id}"
   acl    = "private"
@@ -36,7 +36,7 @@ module "artifacts_repository" {
 
 module "backups_repository" {
   source = "terraform-aws-modules/s3-bucket/aws"
-  version = "4.11.0"
+  version = "5.9.1"
 
   bucket = "${local.name}-backups-repository-${random_string.random_suffix.id}"
   acl    = "private"

@@ -33,23 +33,24 @@ spec:
             [[runners]]
               [runners.kubernetes]
                 image = "ubuntu:24.04"
-                privileged = true
+                privileged = false
+                service_account = "gitlab-runner"
               [[runners.kubernetes.volumes.empty_dir]]
                 name = "docker-certs"
                 mount_path = "/certs/client"
                 medium = "Memory"
         deploymentLabels:
-          cg-devx.cost-allocation.cost-center: platform
-          cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-          cg-devx.metadata.service: vsc.runner
-          cg-devx.metadata.chart-version: 0.77.2
-          cg-devx.metadata.version: 0.27.6
+          <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+          <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+          <PLATFORM_NAME_KEBAB>.metadata.service: vsc.runner
+          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 0.77.2
+          <PLATFORM_NAME_KEBAB>.metadata.version: 0.27.6
         podLabels:
-          cg-devx.cost-allocation.cost-center: platform
-          cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-          cg-devx.metadata.service: vsc.runner
-          cg-devx.metadata.chart-version: 0.77.2
-          cg-devx.metadata.version: 0.27.6    
+          <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+          <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+          <PLATFORM_NAME_KEBAB>.metadata.service: vsc.runner
+          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 0.77.2
+          <PLATFORM_NAME_KEBAB>.metadata.version: 0.27.6    
     chart: gitlab-runner
   syncPolicy:
     automated:

@@ -1,13 +1,13 @@
 resource "vault_identity_oidc_key" "key" {
-  name               = "cgdevx"
+  name               = "<PLATFORM_NAME>"
   algorithm          = "RS256"
   allowed_client_ids = ["*"] # todo make explicit list of client ids
 }
 
-resource "vault_identity_oidc_provider" "cgdevx" {
-  name               = "cgdevx"
-  https_enabled      = true
-  issuer_host        = "<SECRET_MANAGER_INGRESS_URL>"
+resource "vault_identity_oidc_provider" "platform" {
+  name          = "<PLATFORM_NAME>"
+  https_enabled = true
+  issuer_host   = "<SECRET_MANAGER_INGRESS_URL>"
   allowed_client_ids = [
     "*" # todo make explicit list of client ids
   ]

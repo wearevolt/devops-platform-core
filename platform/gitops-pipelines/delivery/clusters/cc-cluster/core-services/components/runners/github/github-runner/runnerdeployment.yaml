@@ -1,7 +1,7 @@
 apiVersion: actions.summerwind.dev/v1alpha1
 kind: RunnerDeployment
 metadata:
-  name: actions-runner-cgdevx
+  name: actions-runner-<PLATFORM_NAME>
   annotations:
     argocd.argoproj.io/sync-wave: '10'
 spec:

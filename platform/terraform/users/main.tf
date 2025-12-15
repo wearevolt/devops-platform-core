@@ -20,19 +20,19 @@ locals {
   bot_email        = "<OWNER_EMAIL>"
   users            = {
     ### Primary bot user
-    "cgdevx-bot" = {
+    "<PLATFORM_BOT_NAME>" = {
       vcs_username         = local.vcs_bot_username
       email                = local.bot_email
-      first_name           = "CG DevX"
+      first_name           = "<PLATFORM_NAME>"
       last_name            = "Bot"
       vcs_team_slugs       = ["${local.gitops_repo_name}-admins"]
       acl_policies         = ["admin", "default"]
       oidc_groups_for_user = ["admins"]
     },
     ### Additional users defined bellow. Use this as an example
-    # "cgdevx-demobot-2" = {
-    #   vcs_username   = "cgdevx-demobot-2"
-    #   email             = "demobot2@cloudgeometry.io"
+    # "demo-bot-2" = {
+    #   vcs_username   = "demo-bot-2"
+    #   email             = "demobot2@example.com"
     #   first_name        = "Second"
     #   last_name         = "Bot"
     #   vcs_team_slugs = ["${local.gitops_repo_name}-maintainers", "workload-demo-admins"]

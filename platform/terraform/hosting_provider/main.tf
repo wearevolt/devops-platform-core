@@ -4,21 +4,45 @@ terraform {
 }
 
 locals {
-  cluster_name = "<PRIMARY_CLUSTER_NAME>"
-  region       = "<CLOUD_REGION>"
-  email        = ["<OWNER_EMAIL>"]
-  domain_name  = "<DOMAIN_NAME>"
+  cluster_name         = "<PRIMARY_CLUSTER_NAME>"
+  cluster_version      = "<CLUSTER_VERSION>"
+  cluster_network_cidr = "<CLUSTER_NETWORK_CIDR>"
+  region               = "<CLOUD_REGION>"
+  email                = ["<OWNER_EMAIL>"]
+  domain_name          = "<DOMAIN_NAME>"
+  
+  # Existing VPC configuration (optional)
+  # If vpc_id is empty, a new VPC will be created
+  vpc_id               = "<VPC_ID>"
+  private_subnet_ids   = <PRIVATE_SUBNET_IDS>
+  public_subnet_ids    = <PUBLIC_SUBNET_IDS>
+  intra_subnet_ids     = <INTRA_SUBNET_IDS>
+  database_subnets     = <DATABASE_SUBNET_IDS>
+  
+  # ACM certificate for ALB Ingress Controller / Gateway API
+  acm_certificate_arn  = "<ACM_CERTIFICATE_ARN>"
+  
+  # Security groups (optional)
+  cluster_security_group_id             = "<CLUSTER_SECURITY_GROUP_ID>"
+  additional_cluster_security_group_ids = <ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS>
+  
+  # CloudWatch configuration
+  cloudwatch_log_group_retention_in_days = <CLOUDWATCH_LOG_RETENTION_DAYS>
+  
+  # Node security group additional rules
+  node_security_group_additional_rules = <NODE_SECURITY_GROUP_RULES>
+  
   tags = {
-    "cg-devx.cost-allocation.cost-center" = "platform"
-    "cg-devx.metadata.cluster-name"       = local.cluster_name
-    "cg-devx.metadata.owner"              = "${local.cluster_name}-admin"
-    "provisioned-by"                      = "cg-devx"
+    "<PLATFORM_NAME_KEBAB>.cost-allocation.cost-center" = "platform"
+    "<PLATFORM_NAME_KEBAB>.metadata.cluster-name"       = local.cluster_name
+    "<PLATFORM_NAME_KEBAB>.metadata.owner"              = "${local.cluster_name}-admin"
+    "provisioned-by"                                    = "<PLATFORM_NAME_KEBAB>"
   }
   labels = {
-    "cg-devx.cost-allocation.cost-center" = "platform"
-    "cg-devx.metadata.cluster-name"       = local.cluster_name
-    "cg-devx.metadata.owner"              = "${local.cluster_name}-admin"
-    "provisioned-by"                      = "cg-devx"
+    "<PLATFORM_NAME_KEBAB>.cost-allocation.cost-center" = "platform"
+    "<PLATFORM_NAME_KEBAB>.metadata.cluster-name"       = local.cluster_name
+    "<PLATFORM_NAME_KEBAB>.metadata.owner"              = "${local.cluster_name}-admin"
+    "provisioned-by"                                    = "<PLATFORM_NAME_KEBAB>"
   }
 }
 
@@ -29,6 +53,8 @@ locals {
 module "hosting-provider" {
   source                 = "../modules/cloud_<CLOUD_PROVIDER>"
   cluster_name           = local.cluster_name
+  cluster_version        = local.cluster_version
+  cluster_network_cidr   = local.cluster_network_cidr
   region                 = local.region
   alert_emails           = local.email
   cluster_ssh_public_key = var.cluster_ssh_public_key
@@ -36,6 +62,27 @@ module "hosting-provider" {
   cluster_node_labels    = local.labels
   domain_name            = local.domain_name
   workloads              = var.workloads
+  
+  # Existing VPC configuration (optional)
+  vpc_id             = local.vpc_id
+  private_subnet_ids = local.private_subnet_ids
+  public_subnet_ids  = local.public_subnet_ids
+  intra_subnet_ids   = local.intra_subnet_ids
+  database_subnets   = local.database_subnets
+  
+  # ACM certificate for ALB Ingress Controller / Gateway API
+  acm_certificate_arn = local.acm_certificate_arn
+  
+  # Security groups (optional)
+  cluster_security_group_id             = local.cluster_security_group_id
+  additional_cluster_security_group_ids = local.additional_cluster_security_group_ids
+  
+  # CloudWatch configuration
+  cloudwatch_log_group_retention_in_days = local.cloudwatch_log_group_retention_in_days
+  
+  # Node security group additional rules
+  node_security_group_additional_rules = local.node_security_group_additional_rules
+  
   ## Example of node groups for the AWS cloud hosting provider
   ## Please note that for the  GPU or metal nodes, you need to check node type availability
   ## in your region and send service quota-increasing request to the support

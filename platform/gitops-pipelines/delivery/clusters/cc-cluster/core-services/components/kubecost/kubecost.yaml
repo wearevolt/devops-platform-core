@@ -23,11 +23,11 @@ spec:
          - name: docker-config
         global:
           additionalLabels:
-            cg-devx.cost-allocation.cost-center: platform
-            cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-            cg-devx.metadata.service: cost-management.kubecost
-            cg-devx.metadata.chart-version: 2.7.2
-            cg-devx.metadata.version: 2.7.2
+            <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+            <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+            <PLATFORM_NAME_KEBAB>.metadata.service: cost-management.kubecost
+            <PLATFORM_NAME_KEBAB>.metadata.chart-version: 2.7.2
+            <PLATFORM_NAME_KEBAB>.metadata.version: 2.7.2
           prometheus:
             enabled: false
             fqdn: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090

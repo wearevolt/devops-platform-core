@@ -20,11 +20,11 @@ spec:
           ignoreSecrets: false
           reloadStrategy: annotations
           labels:
-            cg-devx.cost-allocation.cost-center: platform
-            cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-            cg-devx.metadata.service: pod-reloader
-            cg-devx.metadata.chart-version: 2.1.3
-            cg-devx.metadata.version: 1.4.2
+            <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+            <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+            <PLATFORM_NAME_KEBAB>.metadata.service: pod-reloader
+            <PLATFORM_NAME_KEBAB>.metadata.chart-version: 2.1.3
+            <PLATFORM_NAME_KEBAB>.metadata.version: 1.4.2
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: reloader
