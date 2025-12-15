@@ -41,8 +41,18 @@ class AwsSdk:
             return user["User"]["Arn"]
 
         except ClientError as e:
-            logger.error(e)
-            raise e
+            # If get_user() fails (e.g., with SSO credentials), try sts get-caller-identity
+            if "ValidationError" in str(e) and "Must specify userName" in str(e):
+                try:
+                    sts_client = self._session_manager.session.client('sts')
+                    caller_identity = sts_client.get_caller_identity()
+                    return caller_identity["Arn"]
+                except Exception as sts_error:
+                    logger.error(f"Failed to get caller identity: {sts_error}")
+                    raise e
+            else:
+                logger.error(e)
+                raise e
 
     def blocked(self, actions: List[str],
                 resources: Optional[List[str]] = None,
@@ -77,9 +87,18 @@ class AwsSdk:
                 'ContextKeyType': "string"
             } for context_key, context_values in context.items()]
 
+        # Get the current user ARN to check if it's an assumed role (SSO)
+        current_arn = self.current_user_arn()
+        
+        # If this is an assumed role (SSO), skip permission simulation
+        # as simulate_principal_policy doesn't work with assumed roles
+        if "assumed-role" in current_arn:
+            logger.info(f"Skipping permission simulation for assumed role: {current_arn}")
+            return []
+
         iam_client = self._session_manager.session.client('iam')
         results = iam_client.simulate_principal_policy(
-            PolicySourceArn=self.current_user_arn(),
+            PolicySourceArn=current_arn,
             ActionNames=actions,
             ResourceArns=resources,
             ContextEntries=_context
@@ -95,7 +114,8 @@ class AwsSdk:
 
         :param bucket_name: Bucket to create
         :param region: String region to create bucket in, e.g., 'us-west-2'
-        :return: True if bucket created, else False
+        :return: Bucket name if created successfully
+        :raises: ClientError if bucket creation fails
         """
 
         # Create bucket
@@ -104,15 +124,20 @@ class AwsSdk:
                 region = self.region
 
             s3_client = self._session_manager.session.client('s3', region_name=region)
-            location = {'LocationConstraint': region}
-            if region != "us-east-1":
-                bucket = s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration=location)
-            else:
+            
+            # For us-east-1, don't specify LocationConstraint
+            if region == 'us-east-1':
                 bucket = s3_client.create_bucket(Bucket=bucket_name)
+            else:
+                location = {'LocationConstraint': region}
+                bucket = s3_client.create_bucket(Bucket=bucket_name,
+                                                 CreateBucketConfiguration=location)
+            
+            logger.info(f"Successfully created S3 bucket: {bucket_name}")
+            return bucket_name
         except ClientError as e:
-            logger.error(e)
+            logger.error(f"Failed to create S3 bucket {bucket_name}: {e}")
             raise e
-        return bucket_name
 
     def enable_bucket_versioning(self, bucket_name, region=None):
         if region is None:

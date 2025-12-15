@@ -233,6 +233,17 @@ resource "vault_generic_secret" "runner_token" {
   depends_on = [vault_mount.secret]
 }
 
+resource "vault_generic_secret" "gitlab_agent_token" {
+  count = var.vcs_k8s_agent_token != "" ? 1 : 0
+  path = "secret/gitlab-agent"
+
+  data_json = jsonencode(
+    {
+      token = var.vcs_k8s_agent_token
+    }
+  )
+}
+
 resource "vault_generic_secret" "perfectscale_secret" {
   path = "secret/perfectscale-secret"
 
