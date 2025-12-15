@@ -35,29 +35,7 @@ spec:
             - "https://github.com/vaulttec/sonar-auth-oidc/releases/download/v2.1.1/sonar-auth-oidc-plugin-2.1.1.jar"
             - "https://github.com/checkstyle/sonar-checkstyle/releases/download/10.12.3/checkstyle-sonar-plugin-10.12.3.jar"
         ingress:
-          enabled: true
-          hosts:
-            - name: <CODE_QUALITY_INGRESS_URL>
-              path: /
-          annotations:
-            kubernetes.io/ingress.class: "alb"
-            alb.ingress.kubernetes.io/scheme: internet-facing
-                  alb.ingress.kubernetes.io/success-codes: "200-399"
-            alb.ingress.kubernetes.io/certificate-arn: <ACM_CERTIFICATE_ARN>
-            alb.ingress.kubernetes.io/group.name: <ALB_INGRESS_GROUP_NAME>
-            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
-            alb.ingress.kubernetes.io/security-groups: <ALB_SECURITY_GROUPS>
-            alb.ingress.kubernetes.io/subnets: <ALB_PUBLIC_SUBNETS>
-            alb.ingress.kubernetes.io/tags: environment=<PRIMARY_CLUSTER_NAME>,provisioned-by=<PLATFORM_NAME_KEBAB>
-            alb.ingress.kubernetes.io/target-type: ip
-            alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
-          ingressClassName: alb
-          labels:
-            <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
-            <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-            <PLATFORM_NAME_KEBAB>.metadata.service: code-quality.sonarqube
-            <PLATFORM_NAME_KEBAB>.metadata.chart-version: 10.2.0
-            <PLATFORM_NAME_KEBAB>.metadata.version: 10.2.0
+          enabled: false
         account:
           adminPasswordSecretName: "sonarqube-admin"
         labels:

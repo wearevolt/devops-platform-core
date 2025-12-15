@@ -1,7 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: argocd-server
+  name: vault
+  namespace: vault
   annotations:
     alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
     alb.ingress.kubernetes.io/scheme: internet-facing
@@ -13,11 +14,10 @@ metadata:
     alb.ingress.kubernetes.io/subnets: <ALB_PUBLIC_SUBNETS>
     alb.ingress.kubernetes.io/tags: environment=<PRIMARY_CLUSTER_NAME>,provisioned-by=<PLATFORM_NAME_KEBAB>
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/backend-protocol: HTTPS
     kubernetes.io/ingress.class: alb
 spec:
   rules:
-    - host: <CD_INGRESS_URL>
+    - host: <SECRET_MANAGER_INGRESS_URL>
       http:
         paths:
           - path: /
@@ -31,6 +31,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: argocd-server
+                name: vault-active
                 port:
-                  number: 443
+                  number: 8200
+
