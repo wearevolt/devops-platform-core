@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: storage-classes
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '5'
+spec:
+  project: core
+  source:
+    path: gitops-pipelines/delivery/clusters/cc-cluster/core-services/components/kube-system/storage-classes
+    repoURL: <GIT_REPOSITORY_GIT_URL>
+    targetRevision: <GITOPS_REPOSITORY_BRANCH>
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+

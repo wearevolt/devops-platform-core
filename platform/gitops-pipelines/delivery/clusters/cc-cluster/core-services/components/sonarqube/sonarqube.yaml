@@ -22,6 +22,15 @@ spec:
         image:
           pullSecrets:
             - name: docker-config
+        postgresql:
+          image:
+            repository: bitnamilegacy/postgresql
+            tag: "11.14.0"
+          persistence:
+            enabled: true
+            accessMode: ReadWriteOnce
+            size: 20Gi
+            storageClass: gp3
         persistence:
           enabled: false
         plugins:
