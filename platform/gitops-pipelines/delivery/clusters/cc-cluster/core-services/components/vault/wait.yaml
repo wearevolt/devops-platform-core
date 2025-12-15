@@ -49,7 +49,7 @@ spec:
     spec:
       containers:
         - command:
-            - /bin/bash
+            - /bin/sh
             - -c
             - while ! kubectl get secret vault-unseal-secret --namespace vault; do echo "Waiting for secret. CTRL-C to exit."; sleep 5; done
           image: alpine/kubectl:<KUBECTL_VERSION>
@@ -69,7 +69,7 @@ spec:
     spec:
       containers:
         - command:
-            - /bin/bash
+            - /bin/sh
             - -c
             - while ! kubectl get configmap vault-init --namespace vault; do echo "Waiting for configmap. CTRL-C to exit."; sleep 5; done
           image: alpine/kubectl:<KUBECTL_VERSION>
