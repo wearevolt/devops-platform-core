@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: wait
-        image: registry.hub.docker.com/bitnami/kubectl:<KUBECTL_VERSION>
+        image: alpine/kubectl:<KUBECTL_VERSION>
         command:
         - /bin/sh
         - -c

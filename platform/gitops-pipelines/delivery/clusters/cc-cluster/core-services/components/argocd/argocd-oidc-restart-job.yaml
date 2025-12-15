@@ -47,7 +47,7 @@ spec:
     spec:
       containers:
         - name: argocd-oidc-restart-job
-          image: registry.hub.docker.com/bitnami/kubectl:<KUBECTL_VERSION>
+          image: alpine/kubectl:<KUBECTL_VERSION>
           command:
             - /bin/sh
             - -c

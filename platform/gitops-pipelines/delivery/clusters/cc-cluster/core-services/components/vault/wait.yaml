@@ -52,7 +52,7 @@ spec:
             - /bin/bash
             - -c
             - while ! kubectl get secret vault-unseal-secret --namespace vault; do echo "Waiting for secret. CTRL-C to exit."; sleep 5; done
-          image: registry.hub.docker.com/bitnami/kubectl:<KUBECTL_VERSION>
+          image: alpine/kubectl:<KUBECTL_VERSION>
           imagePullPolicy: IfNotPresent
           name: wait
       restartPolicy: OnFailure
@@ -72,7 +72,7 @@ spec:
             - /bin/bash
             - -c
             - while ! kubectl get configmap vault-init --namespace vault; do echo "Waiting for configmap. CTRL-C to exit."; sleep 5; done
-          image: registry.hub.docker.com/bitnami/kubectl:<KUBECTL_VERSION>
+          image: alpine/kubectl:<KUBECTL_VERSION>
           imagePullPolicy: IfNotPresent
           name: wait
       restartPolicy: OnFailure
@@ -113,7 +113,7 @@ spec:
             - --namespace
             - vault
             - --timeout=900s
-          image: registry.hub.docker.com/bitnami/kubectl:<KUBECTL_VERSION>
+          image: alpine/kubectl:<KUBECTL_VERSION>
           imagePullPolicy: IfNotPresent
           name: wait
       restartPolicy: OnFailure

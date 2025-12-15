@@ -3,7 +3,8 @@
 
 # Kubernetes tools
 # NOTE: kubectl version should match your EKS cluster version
-# Available bitnami/kubectl tags: 1.29.x, 1.30.x, 1.31.x, 1.32.x, 1.34.x
+# Using alpine/kubectl image (bitnami/kubectl is deprecated)
+# Available alpine/kubectl tags: https://hub.docker.com/r/alpine/kubectl/tags
 kubectl: "1.34.2"
 terraform: "1.11.4"
 
