@@ -869,10 +869,6 @@ def setup(
             kube_client.wait_for_ingress(harbor_ingress)
             bar()
 
-            harbor_tls_cert = kube_client.get_certificate(HARBOR_NAMESPACE, "harbor-tls")
-            kube_client.wait_for_certificate(harbor_tls_cert)
-            bar()
-
             # wait for sonarqube readiness
             sonar_ss = kube_client.get_stateful_set_objects(SONARQUBE_NAMESPACE, "sonarqube-sonarqube")
             kube_client.wait_for_stateful_set(sonar_ss)
@@ -881,12 +877,8 @@ def setup(
             sonar_pod = kube_client.get_pod(SONARQUBE_NAMESPACE, "sonarqube-sonarqube-0")
             kube_client.wait_for_pod(sonar_pod)
 
-            sonar_ingress = kube_client.get_ingress(SONARQUBE_NAMESPACE, "sonarqube-sonarqube")
+            sonar_ingress = kube_client.get_ingress(SONARQUBE_NAMESPACE, "sonarqube-ingress")
             kube_client.wait_for_ingress(sonar_ingress)
-            bar()
-
-            sonar_tls_cert = kube_client.get_certificate(SONARQUBE_NAMESPACE, "sonarqube-tls")
-            kube_client.wait_for_certificate(sonar_tls_cert)
             bar()
 
             # wait for registry API endpoint readiness
