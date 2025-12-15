@@ -14,8 +14,8 @@ metadata:
     alb.ingress.kubernetes.io/subnets: <ALB_PUBLIC_SUBNETS>
     alb.ingress.kubernetes.io/tags: environment=<PRIMARY_CLUSTER_NAME>,provisioned-by=<PLATFORM_NAME_KEBAB>
     alb.ingress.kubernetes.io/target-type: ip
-    kubernetes.io/ingress.class: alb
 spec:
+  ingressClassName: alb
   rules:
     - host: <SECRET_MANAGER_INGRESS_URL>
       http:

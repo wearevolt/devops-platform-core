@@ -14,8 +14,8 @@ metadata:
     alb.ingress.kubernetes.io/tags: environment=<PRIMARY_CLUSTER_NAME>,provisioned-by=<PLATFORM_NAME_KEBAB>
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/backend-protocol: HTTPS
-    kubernetes.io/ingress.class: alb
 spec:
+  ingressClassName: alb
   rules:
     - host: <CD_INGRESS_URL>
       http:
