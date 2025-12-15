@@ -50,7 +50,8 @@ async def get_argocd_token_via_k8s_portforward(
 
 async def get_argocd_token(user: str, password: str, endpoint: str = "localhost:8080") -> Optional[str]:
     """
-    Asynchronously retrieves an ArgoCD authentication token from a specified endpoint using HTTP POST requests.
+    Asynchronously retrieves an ArgoCD authentication token from a specified endpoint.
+    Tries HTTPS first, falls back to HTTP if HTTPS fails with SSL error.
 
     :param user: The username for authentication with ArgoCD.
     :type user: str
@@ -61,19 +62,25 @@ async def get_argocd_token(user: str, password: str, endpoint: str = "localhost:
     :return: The ArgoCD authentication token if the request succeeds and the user is authenticated; otherwise, None.
     :rtype: Optional[str]
     """
-    async with httpx.AsyncClient(verify=False) as httpx_client:
-        try:
-            response = await httpx_client.post(
-                f"https://{endpoint}/api/v1/session",
-                headers={"Content-Type": "application/json"},
-                content=json.dumps({"username": user, "password": password})
-            )
-            if response.status_code == 404:
-                return None
-            elif response.is_success:
-                return response.json()["token"]
-        except httpx.HTTPStatusError as e:
-            raise e
+    # ArgoCD server uses HTTPS by default, even on port 8080
+    async with httpx.AsyncClient(verify=False, timeout=30.0) as httpx_client:
+        for protocol in ["https", "http"]:
+            try:
+                response = await httpx_client.post(
+                    f"{protocol}://{endpoint}/api/v1/session",
+                    headers={"Content-Type": "application/json"},
+                    content=json.dumps({"username": user, "password": password})
+                )
+                if response.status_code == 404:
+                    return None
+                elif response.is_success:
+                    return response.json()["token"]
+            except (httpx.ConnectError, httpx.RemoteProtocolError):
+                # Try next protocol
+                continue
+            except httpx.HTTPStatusError as e:
+                raise e
+    return None
 
 
 async def delete_application_via_k8s_portforward(
@@ -127,7 +134,8 @@ async def delete_application_via_k8s_portforward(
 @exponential_backoff(base_delay=5)
 async def delete_application(app_name: str, token: str, endpoint: str = "localhost:8080") -> Optional[bool]:
     """
-    Asynchronously deletes an application from the ArgoCD server via a specified endpoint using a given authentication token.
+    Asynchronously deletes an application from the ArgoCD server via a specified endpoint.
+    Tries HTTPS first, falls back to HTTP if HTTPS fails.
 
     :param app_name: The name of the application to delete.
     :type app_name: str
@@ -138,18 +146,22 @@ async def delete_application(app_name: str, token: str, endpoint: str = "localho
     :return: True if the application was successfully deleted; otherwise, None.
     :rtype: Optional[bool]
     """
-    async with httpx.AsyncClient(verify=False) as httpx_client:
-        try:
-            response = await httpx_client.delete(
-                f"https://{endpoint}/api/v1/applications/{app_name}?cascade=true",
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {token}"
-                }
-            )
-            return response.is_success
-        except httpx.HTTPStatusError as e:
-            raise e
+    async with httpx.AsyncClient(verify=False, timeout=30.0) as httpx_client:
+        for protocol in ["https", "http"]:
+            try:
+                response = await httpx_client.delete(
+                    f"{protocol}://{endpoint}/api/v1/applications/{app_name}?cascade=true",
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {token}"
+                    }
+                )
+                return response.is_success
+            except (httpx.ConnectError, httpx.RemoteProtocolError):
+                continue
+            except httpx.HTTPStatusError as e:
+                raise e
+    return None
 
 
 class DeliveryServiceManager:

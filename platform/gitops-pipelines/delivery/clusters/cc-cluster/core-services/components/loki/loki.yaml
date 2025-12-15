@@ -44,11 +44,11 @@ spec:
           rulerConfig:
             alertmanager_url: http://kube-prometheus-stack-alertmanager.monitoring.svc.cluster.local:9093
           podLabels:
-            cg-devx.cost-allocation.cost-center: platform
-            cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-            cg-devx.metadata.service: log-management.loki
-            cg-devx.metadata.chart-version: 6.30.0
-            cg-devx.metadata.version: 3.5.0
+            <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+            <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+            <PLATFORM_NAME_KEBAB>.metadata.service: log-management.loki
+            <PLATFORM_NAME_KEBAB>.metadata.chart-version: 6.30.0
+            <PLATFORM_NAME_KEBAB>.metadata.version: 3.5.0
         test:
           enabled: false
         lokiCanary:

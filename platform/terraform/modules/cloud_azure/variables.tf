@@ -24,7 +24,7 @@ variable "az_count" {
 
 variable "cluster_name" {
   type        = string
-  default     = "CGDevX"
+  default     = ""
   description = "(Required) Specifies the name of the AKS cluster."
   validation {
     condition     = (length(var.cluster_name) <= 16) && (length(var.cluster_name) >= 2)
@@ -63,17 +63,13 @@ variable "node_groups" {
 
 variable "cluster_node_labels" {
   type    = map(string)
-  default = {
-    provisioned-by = "cg-devx"
-  }
+  default     = {}
   description = "(Optional) Specifies the AKS node labels"
 }
 
 variable "tags" {
   type    = map(string)
-  default = {
-    provisioned-by = "cg-devx"
-  }
+  default     = {}
   description = "(Optional) Specifies the Azure resource tags"
 }
 

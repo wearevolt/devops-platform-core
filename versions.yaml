@@ -1,0 +1,73 @@
+# Component versions for DevOps Platform
+# Edit this file to update versions of platform components
+
+# Kubernetes tools
+# NOTE: kubectl version should match your EKS cluster version
+kubectl: "1.34.2"
+terraform: "1.11.4"
+
+# Terraform providers
+gitlab_provider: "18.2.0"
+github_provider: "6.9.0"
+
+# ArgoCD and GitOps
+argocd: "7.7.16"
+argo_workflows: "0.46.2"
+
+# Core services
+vault: "0.29.1"
+external_secrets: "0.16.0"
+external_dns: "1.19.0"
+
+# AWS Load Balancer Controller
+aws_load_balancer_controller: "1.13.4"
+aws_load_balancer_controller_image_tag: "v2.11.0"
+
+# Monitoring & Observability
+kube_prometheus_stack: "80.4.1"
+prometheus_operator_crds: "20.0.0"
+trivy_operator: "0.29.0"
+loki: "6.30.0"
+promtail: "6.16.6"
+
+# CI/CD Runners
+actions_runner_controller: "0.23.7"
+gitlab_runner: "0.77.2"
+
+# IaC & Automation
+atlantis: "5.17.2"
+
+# Registry & Artifacts
+harbor: "v1.16.3"
+
+# Code Quality
+sonarqube: "10.2.0"
+
+# Developer Portal
+backstage: "1.6.0"
+
+# Utilities
+reloader: "v2.1.3"
+
+# Scalers
+cluster_autoscaler: "9.46.6"
+keda: "v2.17.1"
+
+# Cost Management
+kubecost: "2.7.2"
+
+# Security
+kyverno: "v3.4.1"
+kyverno_policies: "v3.4.1"
+policy_reporter: "v3.1.4"
+tracee: "0.23.1"
+
+# Backup
+velero: "7.2.1"
+
+# ML/GPU
+gpu_operator: "v24.3.0"
+
+# Third-party integrations
+perfectscale_exporter: "v1.0.41"
+perfectscale_autoscaler: "v1.0.10"

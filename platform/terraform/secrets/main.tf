@@ -16,7 +16,8 @@ provider "vault" {
 
 locals {
   cluster_name   = "<PRIMARY_CLUSTER_NAME>"
-  provisioned_by = "cgdevx"
+  platform_name  = "<PLATFORM_NAME>"
+  provisioned_by = "<PLATFORM_NAME_KEBAB>"
 }
 
 module "secrets" {

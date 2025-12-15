@@ -14,11 +14,11 @@ spec:
     helm:
       values: |-
         commonLabels:
-          cg-devx.cost-allocation.cost-center: platform
-          cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-          cg-devx.metadata.service: developer-portal.backstage
-          cg-devx.metadata.chart-version: 1.6.0
-          cg-devx.metadata.version: 1.17.0-next.2
+          <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+          <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+          <PLATFORM_NAME_KEBAB>.metadata.service: developer-portal.backstage
+          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 1.6.0
+          <PLATFORM_NAME_KEBAB>.metadata.version: 1.17.0-next.2
         global:
           imageRegistry: ""
           imagePullSecrets: 
@@ -37,17 +37,20 @@ spec:
             - infinity
         ingress:
           enabled: true
-          className: "nginx"
+          className: "alb"
           annotations:
-            cert-manager.io/cluster-issuer: "letsencrypt-prod"
-            nginx.ingress.kubernetes.io/enable-cors: "true"
-            nginx.ingress.kubernetes.io/cors-allow-origin: "https://<PORTAL_INGRESS_URL>"
-            nginx.ingress.kubernetes.io/auth-url: "https://$host/oauth2/auth"
-            nginx.ingress.kubernetes.io/auth-signin: "https://$host/oauth2/start?rd=$escaped_request_uri"
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/certificate-arn: <ACM_CERTIFICATE_ARN>
+            alb.ingress.kubernetes.io/group.name: <ALB_INGRESS_GROUP_NAME>
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+            alb.ingress.kubernetes.io/security-groups: <ALB_SECURITY_GROUPS>
+            alb.ingress.kubernetes.io/subnets: <ALB_PUBLIC_SUBNETS>
+            alb.ingress.kubernetes.io/tags: environment=<PRIMARY_CLUSTER_NAME>,provisioned-by=<PLATFORM_NAME_KEBAB>
+            alb.ingress.kubernetes.io/target-type: ip
+            alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
           host: "<PORTAL_INGRESS_URL>"
           tls:
-            enabled: true
-            secretName: "backstage-tls"
+            enabled: false
         backstage:
           replicas: 1
           revisionHistoryLimit: 10

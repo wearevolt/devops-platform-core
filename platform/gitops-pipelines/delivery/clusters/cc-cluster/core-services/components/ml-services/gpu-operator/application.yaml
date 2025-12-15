@@ -15,11 +15,11 @@ spec:
       values: |-
         daemonsets:
           labels:
-            cg-devx.cost-allocation.cost-center: platform
-            cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-            cg-devx.metadata.service: ml.gpu-operator
-            cg-devx.metadata.chart-version: 24.3.0
-            cg-devx.metadata.version: 24.3.0
+            <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+            <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+            <PLATFORM_NAME_KEBAB>.metadata.service: ml.gpu-operator
+            <PLATFORM_NAME_KEBAB>.metadata.chart-version: 24.3.0
+            <PLATFORM_NAME_KEBAB>.metadata.version: 24.3.0
       parameters:
         # set tolerations to work on gpu enabled node groups
         # node-feature-discovery.worker

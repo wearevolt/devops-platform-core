@@ -17,11 +17,11 @@ spec:
         imagePullSecrets:
           - name: docker-config
         additionalLabels:
-          cg-devx.cost-allocation.cost-center: platform
-          cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-          cg-devx.metadata.service: scaler.keda
-          cg-devx.metadata.chart-version: 2.17.1
-          cg-devx.metadata.version: 2.17.1
+          <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+          <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+          <PLATFORM_NAME_KEBAB>.metadata.service: scaler.keda
+          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 2.17.1
+          <PLATFORM_NAME_KEBAB>.metadata.version: 2.17.1
         crds:
           additionalAnnotations:
             argocd.argoproj.io/sync-options: ServerSideApply=true

@@ -17,13 +17,13 @@ spec:
         secret:
           name: perfectscale-secret
         settings:
-          clusterName: cg-devx-perfectscale
+          clusterName: <PRIMARY_CLUSTER_NAME>-perfectscale
         additionalLabels: 
-          cg-devx.cost-allocation.cost-center: platform
-          cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-          cg-devx.metadata.service: scaler.perfectscale
-          cg-devx.metadata.chart-version: 1.0.41
-          cg-devx.metadata.version: 1.0.0
+          <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+          <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+          <PLATFORM_NAME_KEBAB>.metadata.service: scaler.perfectscale
+          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 1.0.41
+          <PLATFORM_NAME_KEBAB>.metadata.version: 1.0.0
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: perfectscale

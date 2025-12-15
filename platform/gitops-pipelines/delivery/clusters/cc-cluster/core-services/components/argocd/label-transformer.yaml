@@ -4,10 +4,10 @@ kind: LabelTransformer
 metadata:
   name: argocd-common-labels
 labels:
-  cg-devx.cost-allocation.cost-center: "platform"
-  cg-devx.metadata.owner: "<GITOPS_REPOSITORY_NAME>-admin"
-  cg-devx.metadata.service: "continuous-delivery.argocd"
-  cg-devx.metadata.version: "2.14.12"
+  <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: "platform"
+  <PLATFORM_NAME_KEBAB>.metadata.owner: "<GITOPS_REPOSITORY_NAME>-admin"
+  <PLATFORM_NAME_KEBAB>.metadata.service: "continuous-delivery.argocd"
+  <PLATFORM_NAME_KEBAB>.metadata.version: "2.14.12"
 fieldSpecs:
 - path: metadata/labels
   create: true

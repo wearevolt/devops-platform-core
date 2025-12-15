@@ -55,7 +55,7 @@ module "vpc" {
   }
   routes = [
     {
-      name              = "cgdevx-egress-internet-${local.name}"
+      name              = "${local.name}-egress-internet"
       description       = "Route traffic through Cloud NAT to access internet"
       destination_range = "0.0.0.0/0"
       # tags              = "egress-inet"
@@ -72,14 +72,14 @@ module "vpc" {
   ]
 }
 resource "google_compute_router" "router" {
-  name    = "cgdevx-gke-router-${var.cluster_name}"
+  name    = "${var.cluster_name}-gke-router"
   project = local.project_id
   network = module.vpc.network_id
   region  = local.region
 }
 
 module "cloud-nat" {
-  name                               = "cgdevx-gke-nat-config-${var.cluster_name}"
+  name                               = "${var.cluster_name}-gke-nat-config"
   source                             = "terraform-google-modules/cloud-nat/google"
   version                            = "~> 5.0"
   project_id                         = local.project_id

@@ -25,28 +25,28 @@ spec:
         trivy:
           ignoreUnfixed: false
           labels:
-            cg-devx.cost-allocation.cost-center: platform
-            cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-            cg-devx.metadata.service: runtime-vulnerability-analysis
-            cg-devx.metadata.chart-version: 0.28.1
-            cg-devx.metadata.version: 0.28.1
+            <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+            <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+            <PLATFORM_NAME_KEBAB>.metadata.service: runtime-vulnerability-analysis
+            <PLATFORM_NAME_KEBAB>.metadata.chart-version: 0.28.1
+            <PLATFORM_NAME_KEBAB>.metadata.version: 0.28.1
         serviceMonitor:
           # enabled determines whether a serviceMonitor should be deployed
           enabled: true
           labels:
-            cg-devx.cost-allocation.cost-center: platform
-            cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-            cg-devx.metadata.service: runtime-vulnerability-analysis
-            cg-devx.metadata.chart-version: 0.28.1
-            cg-devx.metadata.version: 0.28.1
+            <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+            <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+            <PLATFORM_NAME_KEBAB>.metadata.service: runtime-vulnerability-analysis
+            <PLATFORM_NAME_KEBAB>.metadata.chart-version: 0.28.1
+            <PLATFORM_NAME_KEBAB>.metadata.version: 0.28.1
         operator:
           metricsVulnIdEnabled: true
           labels:
-            cg-devx.cost-allocation.cost-center: platform
-            cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-            cg-devx.metadata.service: runtime-vulnerability-analysis
-            cg-devx.metadata.chart-version: 0.28.1
-            cg-devx.metadata.version: 0.28.1
+            <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+            <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+            <PLATFORM_NAME_KEBAB>.metadata.service: runtime-vulnerability-analysis
+            <PLATFORM_NAME_KEBAB>.metadata.chart-version: 0.28.1
+            <PLATFORM_NAME_KEBAB>.metadata.version: 0.28.1
   syncPolicy:
     automated:
       prune: true

@@ -13,7 +13,7 @@ resource "azurerm_storage_account" "storage_account" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
   tags                     = merge(local.tags, {
-    "cg-devx.metadata.service" : "secret-manager"
+    "metadata.service" : "secret-manager"
   })
   public_network_access_enabled = true
   min_tls_version               = "TLS1_2"

@@ -19,11 +19,11 @@ spec:
       values: |
         global:
           labels:
-            cg-devx.cost-allocation.cost-center: platform
-            cg-devx.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
-            cg-devx.metadata.service: policy-engine.kyverno-policy-reporter
-            cg-devx.metadata.chart-version: 3.1.4
-            cg-devx.metadata.version: 3.1.1          
+            <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
+            <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
+            <PLATFORM_NAME_KEBAB>.metadata.service: policy-engine.kyverno-policy-reporter
+            <PLATFORM_NAME_KEBAB>.metadata.chart-version: 3.1.4
+            <PLATFORM_NAME_KEBAB>.metadata.version: 3.1.1          
         ui:
           enabled: true
         kyvernoPlugin:
