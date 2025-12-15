@@ -148,19 +148,19 @@ async def delete_application(app_name: str, token: str, endpoint: str = "localho
     """
     async with httpx.AsyncClient(verify=False, timeout=30.0) as httpx_client:
         for protocol in ["https", "http"]:
-        try:
-            response = await httpx_client.delete(
+            try:
+                response = await httpx_client.delete(
                     f"{protocol}://{endpoint}/api/v1/applications/{app_name}?cascade=true",
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {token}"
-                }
-            )
-            return response.is_success
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {token}"
+                    }
+                )
+                return response.is_success
             except (httpx.ConnectError, httpx.RemoteProtocolError):
                 continue
-        except httpx.HTTPStatusError as e:
-            raise e
+            except httpx.HTTPStatusError as e:
+                raise e
     return None
 
 
