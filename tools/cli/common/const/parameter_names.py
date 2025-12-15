@@ -26,6 +26,7 @@ ALB_SECURITY_GROUPS = 'alb-security-groups'
 # Security groups (optional)
 CLUSTER_SECURITY_GROUP_ID = 'cluster-security-group-id'
 ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS = 'additional-cluster-security-group-ids'
+NODE_SECURITY_GROUP_IDS = 'node-security-group-ids'
 NODE_SECURITY_GROUP_RULES = 'node-security-group-rules'
 
 # CloudWatch configuration

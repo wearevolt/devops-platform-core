@@ -28,7 +28,7 @@ from common.const.parameter_names import CLOUD_PROFILE, OWNER_EMAIL, CLOUD_PROVI
     PLATFORM_NAME, VPC_ID, PRIVATE_SUBNET_IDS, PUBLIC_SUBNET_IDS, INTRA_SUBNET_IDS, DATABASE_SUBNET_IDS, \
     ACM_CERTIFICATE_ARN, ALB_INGRESS_GROUP_NAME, ALB_SECURITY_GROUPS, \
     CLUSTER_SECURITY_GROUP_ID, ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS, \
-    NODE_SECURITY_GROUP_RULES, CLOUDWATCH_LOG_RETENTION_DAYS, \
+    NODE_SECURITY_GROUP_IDS, NODE_SECURITY_GROUP_RULES, CLOUDWATCH_LOG_RETENTION_DAYS, \
     DNS_REGISTRAR, DNS_REGISTRAR_ACCESS_TOKEN, DNS_REGISTRAR_ACCESS_KEY, DNS_REGISTRAR_ACCESS_SECRET, \
     DOMAIN_NAME, GIT_PROVIDER, GIT_ORGANIZATION_NAME, GIT_ACCESS_TOKEN, GITOPS_REPOSITORY_NAME, \
     GITOPS_REPOSITORY_TEMPLATE_URL, GITOPS_REPOSITORY_TEMPLATE_BRANCH, DEMO_WORKLOAD, OPTIONAL_SERVICES, \
@@ -1130,6 +1130,15 @@ def prepare_parameters(p, git_man):
         p.parameters["<NODE_SECURITY_GROUP_RULES>"] = node_sg_rules
     else:
         p.parameters["<NODE_SECURITY_GROUP_RULES>"] = "{}"
+    
+    # Node security group IDs (list of security groups to attach to EKS nodes)
+    node_sg_ids = p.get_input_param(NODE_SECURITY_GROUP_IDS) or ""
+    if node_sg_ids:
+        # Convert comma-separated string to Terraform list format
+        sg_list = [sg.strip() for sg in node_sg_ids.split(",") if sg.strip()]
+        p.parameters["<NODE_SECURITY_GROUP_IDS>"] = '[' + ', '.join([f'"{sg}"' for sg in sg_list]) + ']'
+    else:
+        p.parameters["<NODE_SECURITY_GROUP_IDS>"] = "[]"
     
     platform_name = p.get_input_param(PLATFORM_NAME) or p.get_input_param(PRIMARY_CLUSTER_NAME)
     p.parameters["<PLATFORM_NAME>"] = platform_name

@@ -71,6 +71,12 @@ variable "node_security_group_additional_rules" {
   description = "(Optional) Additional security group rules for EKS nodes"
 }
 
+variable "node_security_group_ids" {
+  type        = list(string)
+  default     = []
+  description = "(Optional) List of security group IDs to attach to EKS managed node groups"
+}
+
 # CloudWatch configuration
 variable "cloudwatch_log_group_retention_in_days" {
   type        = number

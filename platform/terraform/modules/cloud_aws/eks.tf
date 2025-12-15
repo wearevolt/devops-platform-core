@@ -98,6 +98,7 @@ module "eks" {
       attach_cluster_primary_security_group = true
       disk_size                             = 100
       use_custom_launch_template            = false
+      vpc_security_group_ids                = var.node_security_group_ids
     })
   } : {}
 
