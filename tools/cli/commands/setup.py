@@ -751,8 +751,8 @@ def setup(
             kube_client.wait_for_ingress(ingress)
             bar()
 
-            tls_cert = kube_client.get_certificate(VAULT_NAMESPACE, "vault-tls")
-            kube_client.wait_for_certificate(tls_cert)
+            # Skip TLS certificate wait - using ALB with ACM certificate
+            # TLS termination happens at ALB level, not in cluster
             bar()
 
             wait_http_endpoint_readiness(f'https://{p.parameters["<SECRET_MANAGER_INGRESS_URL>"]}')
