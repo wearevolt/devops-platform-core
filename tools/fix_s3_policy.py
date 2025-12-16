@@ -41,7 +41,10 @@ def fix_s3_bucket_policy(bucket_name):
     allowed_arns = [
         current_user_arn,
         f"arn:aws:iam::{account_id}:role/dev-platform-iac_pr_automation-role",
-        f"arn:aws:iam::{account_id}:root"
+        f"arn:aws:iam::{account_id}:root",
+        # Always allow AdministratorAccess SSO role (any session)
+        f"arn:aws:sts::{account_id}:assumed-role/AWSReservedSSO_AdministratorAccess_*/*",
+        f"arn:aws:iam::{account_id}:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_AdministratorAccess_*",
     ]
     
     # Если это SSO assumed role, добавляем базовый ARN роли без имени сессии
@@ -56,7 +59,10 @@ def fix_s3_bucket_policy(bucket_name):
             if len(role_parts) >= 2:
                 role_name = role_parts[1]  # Получаем имя роли без сессии
                 base_role_arn = f"arn:aws:iam::{account_id_from_arn}:role/{role_name}"
+                # Add wildcard pattern for any session of this role
+                wildcard_arn = f"arn:aws:sts::{account_id_from_arn}:assumed-role/{role_name}/*"
                 allowed_arns.append(base_role_arn)
+                allowed_arns.append(wildcard_arn)
     
     bucket_policy = {
         "Version": "2012-10-17",

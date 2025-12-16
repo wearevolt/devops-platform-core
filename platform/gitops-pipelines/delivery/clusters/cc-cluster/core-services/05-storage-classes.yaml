@@ -10,7 +10,7 @@ spec:
   source:
     path: gitops-pipelines/delivery/clusters/cc-cluster/core-services/components/kube-system/storage-classes
     repoURL: <GIT_REPOSITORY_GIT_URL>
-    targetRevision: <GITOPS_REPOSITORY_BRANCH>
+    targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:

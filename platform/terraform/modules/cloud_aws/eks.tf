@@ -76,8 +76,9 @@ module "eks" {
   # Auth config
   authentication_mode = "API_AND_CONFIG_MAP"
 
+  # Access entries for GitHub OIDC role (CI/CD access)
+  # Cluster creator already has admin access via enable_cluster_creator_admin_permissions = true
   access_entries = {
-    # Access for iam-github-oidc-role
     git-assumable = {
       kubernetes_groups = []
       principal_arn     = "arn:aws:iam::${local.aws_account}:role/iam-github-oidc-role"
@@ -93,11 +94,12 @@ module "eks" {
   }
 
   # Node groups (defaults are set per group in v21.x)
+  # use_custom_launch_template = true is required for vpc_security_group_ids to work
   eks_managed_node_groups = (local.node_group_type == "EKS") ? {
     for k, v in local.eks_node_groups : k => merge(v, {
       attach_cluster_primary_security_group = true
       disk_size                             = 100
-      use_custom_launch_template            = false
+      use_custom_launch_template            = length(var.node_security_group_ids) > 0 ? true : false
       vpc_security_group_ids                = var.node_security_group_ids
     })
   } : {}

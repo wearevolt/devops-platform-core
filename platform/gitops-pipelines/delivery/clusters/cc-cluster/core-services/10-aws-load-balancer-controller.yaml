@@ -10,10 +10,10 @@ spec:
   source:
     repoURL: <GIT_REPOSITORY_GIT_URL>
     targetRevision: HEAD
-    path: clusters/<PRIMARY_CLUSTER_NAME>/core-services/components/kube-system/aws-load-balancer-controller
+    path: gitops-pipelines/delivery/clusters/cc-cluster/core-services/components/kube-system/aws-load-balancer-controller
   destination:
-    name: in-cluster
-    namespace: argocd
+    server: https://kubernetes.default.svc
+    namespace: kube-system
   syncPolicy:
     automated:
       prune: true

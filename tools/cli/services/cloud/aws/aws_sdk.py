@@ -54,6 +54,42 @@ class AwsSdk:
                 logger.error(e)
                 raise e
 
+    def current_user_arn_patterns(self) -> list:
+        """Get ARN patterns for current user that work with bucket policies.
+        
+        For SSO/assumed roles, returns wildcard patterns to handle session name changes.
+        For IAM users, returns the exact ARN.
+        
+        Returns:
+            list: List of ARN patterns suitable for bucket policy conditions.
+        """
+        import re
+        
+        arn = self.current_user_arn()
+        patterns = [arn]  # Always include exact ARN
+        
+        # Check if this is an assumed role (SSO, cross-account, etc.)
+        # Format: arn:aws:sts::ACCOUNT:assumed-role/ROLE_NAME/SESSION_NAME
+        assumed_role_match = re.match(
+            r'arn:aws:sts::(\d+):assumed-role/([^/]+)/.*',
+            arn
+        )
+        
+        if assumed_role_match:
+            account_id = assumed_role_match.group(1)
+            role_name = assumed_role_match.group(2)
+            
+            # Add wildcard pattern for any session of this role
+            # This allows the same role with different session names
+            patterns.append(f"arn:aws:sts::{account_id}:assumed-role/{role_name}/*")
+            
+            # Also add the IAM role ARN (for direct role access)
+            patterns.append(f"arn:aws:iam::{account_id}:role/{role_name}")
+            
+            logger.info(f"Detected assumed role, adding patterns: {patterns}")
+        
+        return patterns
+
     def blocked(self, actions: List[str],
                 resources: Optional[List[str]] = None,
                 context: Optional[Dict[str, List]] = None
@@ -148,8 +184,30 @@ class AwsSdk:
         versioning.enable()
 
     def set_bucket_policy(self, bucket_name: str, identity: str, region: str = None):
+        """Set restrictive bucket policy that allows access only to specific principals.
+        
+        Args:
+            bucket_name: Name of the S3 bucket
+            identity: ARN of the identity (e.g., Atlantis IAM role) to allow access
+            region: AWS region (defaults to session region)
+        """
         if region is None:
             region = self.region
+
+        # Get ARN patterns for current user (handles SSO/assumed roles with wildcards)
+        user_arn_patterns = self.current_user_arn_patterns()
+        
+        # Build the list of allowed principals
+        allowed_principals = [
+            *user_arn_patterns,  # Current user patterns (with wildcards for SSO)
+            identity,            # Atlantis IAM role
+            f"arn:aws:iam::{self._account_id}:root",  # Account root (always include for recovery)
+            # Always allow AdministratorAccess SSO role (any session)
+            f"arn:aws:sts::{self._account_id}:assumed-role/AWSReservedSSO_AdministratorAccess_*/*",
+            f"arn:aws:iam::{self._account_id}:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_AdministratorAccess_*",
+        ]
+        
+        logger.info(f"Setting bucket policy for {bucket_name} with allowed principals: {allowed_principals}")
 
         bucket_policy = {
             "Version": "2012-10-17",
@@ -162,11 +220,7 @@ class AwsSdk:
                     "Principal": "*",
                     "Condition": {
                         "ArnLike": {
-                            "aws:PrincipalArn": [
-                                self.current_user_arn(),
-                                identity,
-                                f"arn:aws:iam::{self._account_id}:root"
-                            ]
+                            "aws:PrincipalArn": allowed_principals
                         }
                     },
                     "Resource": [f"arn:aws:s3:::{bucket_name}", f"arn:aws:s3:::{bucket_name}/*"],
@@ -179,11 +233,7 @@ class AwsSdk:
                     "Principal": "*",
                     "Condition": {
                         "ArnNotLike": {
-                            "aws:PrincipalArn": [
-                                self.current_user_arn(),
-                                identity,
-                                f"arn:aws:iam::{self._account_id}:root"
-                            ]
+                            "aws:PrincipalArn": allowed_principals
                         }
                     },
                     "Resource": [f"arn:aws:s3:::{bucket_name}", f"arn:aws:s3:::{bucket_name}/*"],

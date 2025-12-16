@@ -55,6 +55,7 @@ from services.keys.key_manager import KeyManager
 from services.platform_template_manager import GitOpsTemplateManager
 from services.tf_wrapper import TfWrapper
 from services.vcs.git_provider_manager import GitProviderManager
+from services.helm_wrapper import HelmWrapper
 
 
 @click.command()
@@ -646,6 +647,31 @@ def setup(
                 "https://kubernetes-sigs.github.io/external-dns",
                 "*"
             ])
+
+            # Install AWS Load Balancer Controller via Helm (before ArgoCD registry app)
+            # This ensures ALB controller is available for Ingress resources
+            if p.get_input_param(CLOUD_PROVIDER) == CloudProviders.AWS:
+                click.echo("  Installing AWS Load Balancer Controller...")
+                helm = HelmWrapper(kubeconfig_path=p.internals.get("KCTL_CONFIG_PATH"))
+                # Use VPC ID from parameters or from Terraform output (NETWORK_ID)
+                vpc_id = p.parameters.get("<VPC_ID>") or p.parameters.get("<NETWORK_ID>", "")
+                alb_role_arn = p.parameters.get("<ALB_CONTROLLER_IRSA_ROLE_ARN>", "")
+                
+                if vpc_id and alb_role_arn:
+                    alb_installed = helm.install_aws_load_balancer_controller(
+                        cluster_name=p.get_input_param(PRIMARY_CLUSTER_NAME),
+                        region=p.get_input_param(CLOUD_REGION),
+                        vpc_id=vpc_id,
+                        service_account_role_arn=alb_role_arn,
+                        version=AWS_LOAD_BALANCER_CONTROLLER_VERSION,
+                        image_tag=AWS_LOAD_BALANCER_CONTROLLER_IMAGE_TAG
+                    )
+                    if not alb_installed:
+                        click.echo("  WARNING: Failed to install AWS Load Balancer Controller")
+                    else:
+                        click.echo("  AWS Load Balancer Controller installed successfully")
+                else:
+                    click.echo(f"  WARNING: Missing VPC ID ({vpc_id}) or ALB role ARN ({alb_role_arn}), skipping ALB controller installation")
 
             # deploy registry app
             cd_man.create_core_application(argocd_core_project_name, p.parameters["<GIT_REPOSITORY_GIT_URL>"],
