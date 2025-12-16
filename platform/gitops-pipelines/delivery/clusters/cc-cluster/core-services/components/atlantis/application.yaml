@@ -10,14 +10,14 @@ spec:
   source:
     repoURL: https://runatlantis.github.io/helm-charts
     chart: atlantis
-    targetRevision: 5.17.2
+    targetRevision: 5.23.0
     helm:
       values: |-
         commonLabels:
           <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
           <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
           <PLATFORM_NAME_KEBAB>.metadata.service: atlantis
-          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 5.17.2
+          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 5.23.0
           <PLATFORM_NAME_KEBAB>.metadata.version: 0.34.0
         statefulSet:
           annotations:

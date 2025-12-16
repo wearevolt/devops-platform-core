@@ -13,7 +13,8 @@ gitlab_provider: "18.2.0"
 github_provider: "6.9.0"
 
 # ArgoCD and GitOps
-argocd: "7.7.16"
+# ArgoCD installed via Kustomize from GitHub, not Helm
+argocd: "v3.2.1"
 argo_workflows: "0.46.2"
 
 # Core services
@@ -37,7 +38,7 @@ actions_runner_controller: "0.23.7"
 gitlab_runner: "0.77.2"
 
 # IaC & Automation
-atlantis: "5.17.2"
+atlantis: "5.23.0"
 
 # Registry & Artifacts
 harbor: "v1.16.3"
@@ -46,7 +47,7 @@ harbor: "v1.16.3"
 sonarqube: "10.2.0"
 
 # Developer Portal
-backstage: "1.6.0"
+backstage: "2.6.3"
 
 # Utilities
 reloader: "v2.1.3"
