@@ -66,7 +66,7 @@ module "eks" {
   security_group_id             = var.cluster_security_group_id != "" ? var.cluster_security_group_id : null
   additional_security_group_ids = var.additional_cluster_security_group_ids
 
-  # Node security group rules
+  # Node security group - always create, custom SGs will be added via vpc_security_group_ids in node groups
   create_node_security_group           = true
   node_security_group_additional_rules = var.node_security_group_additional_rules
 
@@ -94,12 +94,11 @@ module "eks" {
   }
 
   # Node groups (defaults are set per group in v21.x)
-  # use_custom_launch_template = true is required for vpc_security_group_ids to work
+  # Module will automatically combine: cluster_primary_sg + node_sg + vpc_security_group_ids
   eks_managed_node_groups = (local.node_group_type == "EKS") ? {
     for k, v in local.eks_node_groups : k => merge(v, {
       attach_cluster_primary_security_group = true
       disk_size                             = 100
-      use_custom_launch_template            = length(var.node_security_group_ids) > 0 ? true : false
       vpc_security_group_ids                = var.node_security_group_ids
     })
   } : {}
