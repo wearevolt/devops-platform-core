@@ -38,6 +38,8 @@ ARGO_WORKFLOWS_VERSION = _versions.get("argo_workflows", "0.45.15")
 VAULT_VERSION = _versions.get("vault", "0.26.1")
 EXTERNAL_SECRETS_VERSION = _versions.get("external_secrets", "0.16.0")
 EXTERNAL_DNS_VERSION = _versions.get("external_dns", "1.16.1")
+CERT_MANAGER_VERSION = _versions.get("cert_manager", "1.17.2")
+INGRESS_NGINX_VERSION = _versions.get("ingress_nginx", "4.12.2")
 
 # AWS Load Balancer Controller
 AWS_LOAD_BALANCER_CONTROLLER_VERSION = _versions.get("aws_load_balancer_controller", "1.13.4")

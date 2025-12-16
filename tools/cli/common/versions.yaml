@@ -21,6 +21,8 @@ argo_workflows: "0.46.2"
 vault: "0.29.1"
 external_secrets: "0.16.0"
 external_dns: "1.19.0"
+cert_manager: "1.17.2"
+ingress_nginx: "4.12.2"
 
 # AWS Load Balancer Controller
 aws_load_balancer_controller: "1.13.4"
