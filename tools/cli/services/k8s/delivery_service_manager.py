@@ -184,7 +184,7 @@ class DeliveryServiceManager:
                 "name": project_name,
                 "namespace": self._namespace,
                 # Finalizer that ensures that project is not deleted until it is not referenced by any application
-                "finalizers": ["resources-finalizer.argocd.argoproj.io"]
+                "finalizers": ["argocd.argoproj.io/finalizer"]
             },
             "spec": {
                 "description": "CG DevX platform core services",

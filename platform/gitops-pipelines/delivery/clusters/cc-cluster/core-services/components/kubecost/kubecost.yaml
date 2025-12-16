@@ -5,8 +5,6 @@ metadata:
     argocd.argoproj.io/sync-wave: '10'
   name: kubecost
   namespace: argocd
-  finalizers:
-  - resources-finalizer.argocd.argoproj.io
 spec:
   destination:
     namespace: kubecost
