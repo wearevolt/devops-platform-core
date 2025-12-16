@@ -25,7 +25,10 @@ from common.const.namespaces import ARGOCD_NAMESPACE, ARGO_WORKFLOW_NAMESPACE, E
     ATLANTIS_NAMESPACE, VAULT_NAMESPACE, HARBOR_NAMESPACE, SONARQUBE_NAMESPACE
 from common.const.parameter_names import CLOUD_PROFILE, OWNER_EMAIL, CLOUD_PROVIDER, CLOUD_ACCOUNT_ACCESS_KEY, \
     CLOUD_ACCOUNT_ACCESS_SECRET, CLOUD_REGION, PRIMARY_CLUSTER_NAME, CLUSTER_VERSION, CLUSTER_NETWORK_CIDR, \
-    PLATFORM_NAME, VPC_ID, PRIVATE_SUBNET_IDS, PUBLIC_SUBNET_IDS, INTRA_SUBNET_IDS, \
+    PLATFORM_NAME, VPC_ID, PRIVATE_SUBNET_IDS, PUBLIC_SUBNET_IDS, INTRA_SUBNET_IDS, DATABASE_SUBNET_IDS, \
+    ACM_CERTIFICATE_ARN, ALB_INGRESS_GROUP_NAME, ALB_SECURITY_GROUPS, \
+    CLUSTER_SECURITY_GROUP_ID, ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS, NODE_SECURITY_GROUP_IDS, NODE_SECURITY_GROUP_RULES, \
+    CLOUDWATCH_LOG_RETENTION_DAYS, \
     DNS_REGISTRAR, DNS_REGISTRAR_ACCESS_TOKEN, DNS_REGISTRAR_ACCESS_KEY, DNS_REGISTRAR_ACCESS_SECRET, \
     DOMAIN_NAME, GIT_PROVIDER, GIT_ORGANIZATION_NAME, GIT_ACCESS_TOKEN, GITOPS_REPOSITORY_NAME, \
     GITOPS_REPOSITORY_TEMPLATE_URL, GITOPS_REPOSITORY_TEMPLATE_BRANCH, DEMO_WORKLOAD, OPTIONAL_SERVICES, \
@@ -1079,6 +1082,41 @@ def prepare_parameters(p, git_man):
     p.parameters["<PRIVATE_SUBNET_IDS>"] = to_tf_list(private_subnets)
     p.parameters["<PUBLIC_SUBNET_IDS>"] = to_tf_list(public_subnets)
     p.parameters["<INTRA_SUBNET_IDS>"] = to_tf_list(intra_subnets)
+    
+    # Database subnets (optional)
+    database_subnets = p.get_input_param(DATABASE_SUBNET_IDS)
+    p.parameters["<DATABASE_SUBNET_IDS>"] = to_tf_list(database_subnets)
+    
+    # ACM certificate for ALB Ingress Controller
+    acm_cert_arn = p.get_input_param(ACM_CERTIFICATE_ARN) or ""
+    p.parameters["<ACM_CERTIFICATE_ARN>"] = acm_cert_arn
+    
+    # ALB Ingress configuration
+    cluster_name = p.get_input_param(PRIMARY_CLUSTER_NAME)
+    alb_group_name = p.get_input_param(ALB_INGRESS_GROUP_NAME) or f"{cluster_name}-external"
+    p.parameters["<ALB_INGRESS_GROUP_NAME>"] = alb_group_name
+    
+    alb_security_groups = p.get_input_param(ALB_SECURITY_GROUPS)
+    p.parameters["<ALB_SECURITY_GROUPS>"] = alb_security_groups or ""
+    
+    # Security groups (optional)
+    cluster_sg_id = p.get_input_param(CLUSTER_SECURITY_GROUP_ID) or ""
+    p.parameters["<CLUSTER_SECURITY_GROUP_ID>"] = cluster_sg_id
+    
+    additional_cluster_sgs = p.get_input_param(ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS)
+    p.parameters["<ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS>"] = to_tf_list(additional_cluster_sgs)
+    
+    # Node security groups
+    node_sg_ids = p.get_input_param(NODE_SECURITY_GROUP_IDS)
+    p.parameters["<NODE_SECURITY_GROUP_IDS>"] = to_tf_list(node_sg_ids)
+    
+    # Node security group additional rules (JSON format, default empty object)
+    node_sg_rules = p.get_input_param(NODE_SECURITY_GROUP_RULES) or "{}"
+    p.parameters["<NODE_SECURITY_GROUP_RULES>"] = node_sg_rules
+    
+    # CloudWatch configuration
+    cw_retention = p.get_input_param(CLOUDWATCH_LOG_RETENTION_DAYS) or "30"
+    p.parameters["<CLOUDWATCH_LOG_RETENTION_DAYS>"] = str(cw_retention)
     
     platform_name = p.get_input_param(PLATFORM_NAME) or p.get_input_param(PRIMARY_CLUSTER_NAME)
     p.parameters["<PLATFORM_NAME>"] = platform_name
