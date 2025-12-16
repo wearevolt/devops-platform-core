@@ -41,7 +41,7 @@ spec:
       serviceAccountName: k8s-toolkit-velero-wait
       containers:
         - name: wait
-          image: registry.hub.docker.com/bitnami/kubectl:latest
+          image: alpine/kubectl:<KUBECTL_VERSION>
           imagePullPolicy: IfNotPresent
           args:
             - "rollout"

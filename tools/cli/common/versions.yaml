@@ -3,7 +3,8 @@
 
 # Kubernetes tools
 # NOTE: kubectl version should match your EKS cluster version
-# Available bitnami/kubectl tags: 1.29.x, 1.30.x, 1.31.x, 1.32.x, 1.34.x
+# Using alpine/kubectl image (bitnami/kubectl is deprecated)
+# Available alpine/kubectl tags: https://hub.docker.com/r/alpine/kubectl/tags
 kubectl: "1.34.2"
 terraform: "1.11.4"
 
@@ -12,13 +13,16 @@ gitlab_provider: "18.2.0"
 github_provider: "6.9.0"
 
 # ArgoCD and GitOps
-argocd: "7.7.16"
+# ArgoCD installed via Kustomize from GitHub, not Helm
+argocd: "v3.2.1"
 argo_workflows: "0.46.2"
 
 # Core services
 vault: "0.29.1"
 external_secrets: "0.16.0"
 external_dns: "1.19.0"
+cert_manager: "1.17.2"
+ingress_nginx: "4.12.2"
 
 # AWS Load Balancer Controller
 aws_load_balancer_controller: "1.13.4"
@@ -36,7 +40,7 @@ actions_runner_controller: "0.23.7"
 gitlab_runner: "0.77.2"
 
 # IaC & Automation
-atlantis: "5.17.2"
+atlantis: "5.23.0"
 
 # Registry & Artifacts
 harbor: "v1.16.3"
@@ -45,7 +49,7 @@ harbor: "v1.16.3"
 sonarqube: "10.2.0"
 
 # Developer Portal
-backstage: "1.6.0"
+backstage: "2.6.3"
 
 # Utilities
 reloader: "v2.1.3"

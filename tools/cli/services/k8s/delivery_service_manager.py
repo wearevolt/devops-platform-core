@@ -7,6 +7,7 @@ from kubernetes import client as k8s_client
 
 from common.const.const import ARGOCD_REGISTRY_APP_PATH, GITOPS_REPOSITORY_URL
 from common.const.namespaces import ARGOCD_NAMESPACE
+from common.logging_config import logger
 from common.retry_decorator import exponential_backoff
 from common.utils.k8s_utils import get_kr8s_pod_instance_by_name
 from services.k8s.k8s import KubeClient
@@ -18,11 +19,12 @@ async def get_argocd_token_via_k8s_portforward(
         k8s_pod: k8s_client.V1Pod,
         kube_config_path: str,
         remote_port: int = 8080,
-        local_port: int = 8080
+        local_port: int = 8080,
+        max_retries: int = 5
 ) -> Optional[str]:
     """
-    Asynchronously retrieves an ArgoCD authentication token by setting up port forwarding from a Kubernetes pod's port
-    to a local port.
+    Retrieves an ArgoCD authentication token by establishing a port-forward
+    connection using kubectl subprocess (more stable than kr8s).
 
     :param user: The username for ArgoCD authentication.
     :type user: str
@@ -36,22 +38,83 @@ async def get_argocd_token_via_k8s_portforward(
     :type remote_port: int
     :param local_port: The local port to map the remote port's forwarding.
     :type local_port: int
+    :param max_retries: Maximum number of retry attempts for port-forward failures.
+    :type max_retries: int
     :return: The ArgoCD authentication token if retrieval is successful; otherwise, None.
     :rtype: Optional[str]
     """
-    kr8s_pod = await get_kr8s_pod_instance_by_name(
-        pod_name=k8s_pod.metadata.name,
-        namespace=ARGOCD_NAMESPACE,
-        kubeconfig=kube_config_path
-    )
-    async with kr8s_pod.portforward(remote_port=remote_port, local_port=local_port):
-        return await get_argocd_token(user, password, f'localhost:{local_port}')
+    import asyncio
+    import subprocess
+    import socket
+    
+    last_error = None
+    pod_name = k8s_pod.metadata.name
+    
+    def find_free_port():
+        """Find a free port on localhost."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('', 0))
+            return s.getsockname()[1]
+    
+    for attempt in range(max_retries):
+        # Use a random free port to avoid conflicts
+        actual_local_port = find_free_port()
+        port_forward_process = None
+        
+        try:
+            # Start kubectl port-forward as subprocess
+            cmd = [
+                "kubectl", "port-forward",
+                f"pod/{pod_name}",
+                f"{actual_local_port}:{remote_port}",
+                "-n", ARGOCD_NAMESPACE,
+                "--kubeconfig", kube_config_path
+            ]
+            logger.info(f"Starting port-forward: {' '.join(cmd)}")
+            
+            port_forward_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            
+            # Wait for port-forward to establish
+            await asyncio.sleep(3)
+            
+            # Check if process is still running
+            if port_forward_process.poll() is not None:
+                stderr = port_forward_process.stderr.read().decode() if port_forward_process.stderr else ""
+                raise RuntimeError(f"Port-forward failed to start: {stderr}")
+            
+            # Try to get token
+            token = await get_argocd_token(user, password, f'localhost:{actual_local_port}', max_retries=3)
+            if token:
+                return token
+            
+        except Exception as e:
+            last_error = e
+            logger.warning(f"ArgoCD port-forward failed (attempt {attempt + 1}/{max_retries}): {e}")
+        finally:
+            # Always terminate port-forward process
+            if port_forward_process:
+                port_forward_process.terminate()
+                try:
+                    port_forward_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    port_forward_process.kill()
+        
+        if attempt < max_retries - 1:
+            await asyncio.sleep(5)  # Wait before retry
+    
+    if last_error:
+        raise last_error
+    return None
 
 
-async def get_argocd_token(user: str, password: str, endpoint: str = "localhost:8080") -> Optional[str]:
+async def get_argocd_token(user: str, password: str, endpoint: str = "localhost:8080", max_retries: int = 3) -> Optional[str]:
     """
     Asynchronously retrieves an ArgoCD authentication token from a specified endpoint.
-    Tries HTTPS first, falls back to HTTP if HTTPS fails with SSL error.
+    Uses HTTPS with SSL verification disabled (ArgoCD uses self-signed certs).
 
     :param user: The username for authentication with ArgoCD.
     :type user: str
@@ -59,15 +122,28 @@ async def get_argocd_token(user: str, password: str, endpoint: str = "localhost:
     :type password: str
     :param endpoint: The endpoint URL where the ArgoCD API is available, defaulting to "localhost:8080".
     :type endpoint: str
+    :param max_retries: Maximum number of retry attempts for transient errors.
+    :type max_retries: int
     :return: The ArgoCD authentication token if the request succeeds and the user is authenticated; otherwise, None.
     :rtype: Optional[str]
     """
-    # ArgoCD server uses HTTPS by default, even on port 8080
-    async with httpx.AsyncClient(verify=False, timeout=30.0) as httpx_client:
-        for protocol in ["https", "http"]:
+    import asyncio
+    import ssl
+    
+    last_error = None
+    
+    # Create SSL context that doesn't verify certificates
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
+    for attempt in range(max_retries):
+        # ArgoCD server uses HTTPS with self-signed certificate
+        async with httpx.AsyncClient(verify=False, timeout=30.0) as httpx_client:
             try:
+                # Try HTTPS first (ArgoCD default)
                 response = await httpx_client.post(
-                    f"{protocol}://{endpoint}/api/v1/session",
+                    f"https://{endpoint}/api/v1/session",
                     headers={"Content-Type": "application/json"},
                     content=json.dumps({"username": user, "password": password})
                 )
@@ -75,11 +151,38 @@ async def get_argocd_token(user: str, password: str, endpoint: str = "localhost:
                     return None
                 elif response.is_success:
                     return response.json()["token"]
-            except (httpx.ConnectError, httpx.RemoteProtocolError):
-                # Try next protocol
-                continue
+                else:
+                    logger.warning(f"ArgoCD returned status {response.status_code}: {response.text}")
+            except (httpx.ConnectError, httpx.RemoteProtocolError) as e:
+                # SSL/connection error - try HTTP as fallback
+                logger.debug(f"HTTPS failed, trying HTTP: {e}")
+                try:
+                    response = await httpx_client.post(
+                        f"http://{endpoint}/api/v1/session",
+                        headers={"Content-Type": "application/json"},
+                        content=json.dumps({"username": user, "password": password}),
+                        follow_redirects=True  # Follow redirects to HTTPS
+                    )
+                    if response.status_code == 404:
+                        return None
+                    elif response.is_success:
+                        return response.json()["token"]
+                except Exception as http_e:
+                    last_error = http_e
+                    logger.warning(f"HTTP also failed: {http_e}")
+            except httpx.ReadError as e:
+                # Connection was broken during read - retry
+                last_error = e
+                logger.warning(f"ArgoCD connection read error (attempt {attempt + 1}/{max_retries}): {e}")
             except httpx.HTTPStatusError as e:
                 raise e
+        
+        # Wait before retry
+        if attempt < max_retries - 1:
+            await asyncio.sleep(3)
+    
+    if last_error:
+        raise last_error
     return None
 
 
@@ -184,7 +287,7 @@ class DeliveryServiceManager:
                 "name": project_name,
                 "namespace": self._namespace,
                 # Finalizer that ensures that project is not deleted until it is not referenced by any application
-                "finalizers": ["resources-finalizer.argocd.argoproj.io"]
+                "finalizers": ["argocd.argoproj.io/finalizer"]
             },
             "spec": {
                 "description": "CG DevX platform core services",
@@ -282,13 +385,28 @@ class DeliveryServiceManager:
         return self._k8s_client.create_job(self._namespace, job_name, body)
 
     def turn_off_app_sync(self, name: str):
+        from kubernetes.client.exceptions import ApiException
         sync_policy_patch = [{
             "op": "remove",
             "path": "/spec/syncPolicy",
             "value": ""
         }]
-        return self._k8s_client.patch_custom_object(self._namespace, name, sync_policy_patch, self._group,
-                                                    self._version, "applications")
+        try:
+            return self._k8s_client.patch_custom_object(self._namespace, name, sync_policy_patch, self._group,
+                                                        self._version, "applications")
+        except ApiException as e:
+            if e.status in (404, 422):
+                # 404 = app not found, 422 = syncPolicy already removed
+                logger.debug(f"Application {name}: skipping sync disable (status {e.status})")
+                return None
+            raise
 
     def delete_app(self, name: str):
-        return self._k8s_client.remove_custom_object(self._namespace, name, self._group, self._version, "applications")
+        from kubernetes.client.exceptions import ApiException
+        try:
+            return self._k8s_client.remove_custom_object(self._namespace, name, self._group, self._version, "applications")
+        except ApiException as e:
+            if e.status == 404:
+                logger.debug(f"Application {name} not found, skipping deletion")
+                return None
+            raise

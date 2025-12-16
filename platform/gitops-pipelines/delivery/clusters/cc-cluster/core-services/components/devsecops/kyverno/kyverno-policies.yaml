@@ -3,8 +3,6 @@ kind: Application
 metadata:
   name: kyverno-policies
   namespace: argocd
-  finalizers:
-  - resources-finalizer.argocd.argoproj.io
 spec:
   destination:
     namespace: kyverno

@@ -49,10 +49,10 @@ spec:
     spec:
       containers:
         - command:
-            - /bin/bash
+            - /bin/sh
             - -c
             - while ! kubectl get secret vault-unseal-secret --namespace vault; do echo "Waiting for secret. CTRL-C to exit."; sleep 5; done
-          image: registry.hub.docker.com/bitnami/kubectl:<KUBECTL_VERSION>
+          image: alpine/kubectl:<KUBECTL_VERSION>
           imagePullPolicy: IfNotPresent
           name: wait
       restartPolicy: OnFailure
@@ -69,52 +69,11 @@ spec:
     spec:
       containers:
         - command:
-            - /bin/bash
+            - /bin/sh
             - -c
             - while ! kubectl get configmap vault-init --namespace vault; do echo "Waiting for configmap. CTRL-C to exit."; sleep 5; done
-          image: registry.hub.docker.com/bitnami/kubectl:<KUBECTL_VERSION>
+          image: alpine/kubectl:<KUBECTL_VERSION>
           imagePullPolicy: IfNotPresent
           name: wait
       restartPolicy: OnFailure
       serviceAccountName: k8s-toolkit
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: k8s-toolkit-vault-tls
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: k8s-toolkit-vault-tls
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cert-manager-view
-subjects:
-  - kind: ServiceAccount
-    name: k8s-toolkit-vault-tls
-    namespace: vault
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  annotations:
-    argocd.argoproj.io/sync-wave: '22'
-  name: wait-vault-tls
-spec:
-  template:
-    spec:
-      containers:
-        - args:
-            - wait
-            - certificates.cert-manager.io/vault-tls
-            - --for=condition=Ready
-            - --namespace
-            - vault
-            - --timeout=900s
-          image: registry.hub.docker.com/bitnami/kubectl:<KUBECTL_VERSION>
-          imagePullPolicy: IfNotPresent
-          name: wait
-      restartPolicy: OnFailure
-      serviceAccountName: k8s-toolkit-vault-tls

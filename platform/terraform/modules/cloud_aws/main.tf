@@ -48,7 +48,7 @@ locals {
             effect = "PREFER_NO_SCHEDULE"
           }
         } : {},
-        node_group.gpu_enabled == true ? {
+          node_group.gpu_enabled == true ? {
           group-type = {
             key    = "group-type"
             value  = "gpu-enabled"
@@ -81,7 +81,7 @@ locals {
             effect = "PREFER_NO_SCHEDULE"
           }
         } : {},
-        node_group.gpu_enabled == true ? {
+          node_group.gpu_enabled == true ? {
           group-type = {
             key    = "group-type"
             value  = "gpu-enabled"

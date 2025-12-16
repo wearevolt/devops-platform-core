@@ -3,8 +3,6 @@ kind: Application
 metadata:
   annotations:
     argocd.argoproj.io/sync-wave: '10'
-  finalizers:
-  - resources-finalizer.argocd.argoproj.io
   name: prometheus-operator-crds
   namespace: argocd
 spec:

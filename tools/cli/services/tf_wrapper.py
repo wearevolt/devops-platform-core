@@ -52,7 +52,7 @@ class TfWrapper:
         :return: True if the command was successful, otherwise raises an exception.
         """
         command = self.tf_command_manager.prepare_terraform_command(
-            'init', variables, *args, **kwargs, input=False
+            'init', variables, '-reconfigure', *args, **kwargs, input=False
         )
         logger.info(f"Executing Terraform init with command: {command}")
         return_code, stdout, stderr = self.run_terraform_command(command)

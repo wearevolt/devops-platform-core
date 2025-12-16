@@ -83,6 +83,13 @@ variable "vcs_runner_token" {
   default     = ""
 }
 
+variable "vcs_k8s_agent_token" {
+  description = "VCS Kubernetes agent token for GitLab K8s agent"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "cloud_binary_artifacts_store_access_key" {
   description = "Specifies the access key for CI artifact store backend storage. Only applicable to AKS."
   type        = string

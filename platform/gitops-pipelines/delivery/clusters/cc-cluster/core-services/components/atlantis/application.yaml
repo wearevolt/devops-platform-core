@@ -10,14 +10,14 @@ spec:
   source:
     repoURL: https://runatlantis.github.io/helm-charts
     chart: atlantis
-    targetRevision: 5.17.2
+    targetRevision: 5.23.0
     helm:
       values: |-
         commonLabels:
           <PLATFORM_NAME_KEBAB>.cost-allocation.cost-center: platform
           <PLATFORM_NAME_KEBAB>.metadata.owner: <GITOPS_REPOSITORY_NAME>-admin
           <PLATFORM_NAME_KEBAB>.metadata.service: atlantis
-          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 5.17.2
+          <PLATFORM_NAME_KEBAB>.metadata.chart-version: 5.23.0
           <PLATFORM_NAME_KEBAB>.metadata.version: 0.34.0
         statefulSet:
           annotations:
@@ -46,20 +46,7 @@ spec:
             cpu: 400m
             memory: 512Mi
         ingress:
-          enabled: true
-          annotations:
-            alb.ingress.kubernetes.io/scheme: internet-facing
-            alb.ingress.kubernetes.io/certificate-arn: <ACM_CERTIFICATE_ARN>
-            alb.ingress.kubernetes.io/group.name: <ALB_INGRESS_GROUP_NAME>
-            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
-            alb.ingress.kubernetes.io/security-groups: <ALB_SECURITY_GROUPS>
-            alb.ingress.kubernetes.io/subnets: <ALB_PUBLIC_SUBNETS>
-            alb.ingress.kubernetes.io/tags: environment=<PRIMARY_CLUSTER_NAME>,provisioned-by=<PLATFORM_NAME_KEBAB>
-            alb.ingress.kubernetes.io/target-type: ip
-            alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
-          path: /
-          host: <IAC_PR_AUTOMATION_INGRESS_URL>
-          ingressClassName: "alb"
+          enabled: false
         basicAuthSecretName: atlantis-basic-auth-secrets
         defaultTFVersion: <TERRAFORM_VERSION>
         loadEnvFromSecrets:

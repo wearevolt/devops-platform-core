@@ -32,6 +32,9 @@ locals {
   # Node security group additional rules
   node_security_group_additional_rules = <NODE_SECURITY_GROUP_RULES>
   
+  # Security groups to attach to EKS managed node groups
+  node_security_group_ids = <NODE_SECURITY_GROUP_IDS>
+  
   tags = {
     "<PLATFORM_NAME_KEBAB>.cost-allocation.cost-center" = "platform"
     "<PLATFORM_NAME_KEBAB>.metadata.cluster-name"       = local.cluster_name
@@ -82,6 +85,9 @@ module "hosting-provider" {
   
   # Node security group additional rules
   node_security_group_additional_rules = local.node_security_group_additional_rules
+  
+  # Security groups to attach to EKS managed node groups
+  node_security_group_ids = local.node_security_group_ids
   
   ## Example of node groups for the AWS cloud hosting provider
   ## Please note that for the  GPU or metal nodes, you need to check node type availability

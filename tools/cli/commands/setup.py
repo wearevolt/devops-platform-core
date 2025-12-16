@@ -16,10 +16,10 @@ from common.const.const import GITOPS_REPOSITORY_URL, GITOPS_REPOSITORY_BRANCH, 
     TERRAFORM_VERSION, GITHUB_TF_REQUIRED_PROVIDER_VERSION, GITLAB_TF_REQUIRED_PROVIDER_VERSION
 from common.versions import (
     ARGOCD_VERSION, ARGO_WORKFLOWS_VERSION, VAULT_VERSION, EXTERNAL_SECRETS_VERSION,
-    EXTERNAL_DNS_VERSION, KUBE_PROMETHEUS_STACK_VERSION, TRIVY_OPERATOR_VERSION,
+    CERT_MANAGER_VERSION, EXTERNAL_DNS_VERSION, INGRESS_NGINX_VERSION,
+    KUBE_PROMETHEUS_STACK_VERSION, TRIVY_OPERATOR_VERSION,
     ACTIONS_RUNNER_CONTROLLER_VERSION, GITLAB_RUNNER_VERSION,
-    ATLANTIS_VERSION, HARBOR_VERSION, SONARQUBE_VERSION, BACKSTAGE_VERSION, RELOADER_VERSION,
-    AWS_LOAD_BALANCER_CONTROLLER_VERSION, AWS_LOAD_BALANCER_CONTROLLER_IMAGE_TAG
+    ATLANTIS_VERSION, HARBOR_VERSION, SONARQUBE_VERSION, BACKSTAGE_VERSION, RELOADER_VERSION
 )
 from common.const.namespaces import ARGOCD_NAMESPACE, ARGO_WORKFLOW_NAMESPACE, EXTERNAL_SECRETS_OPERATOR_NAMESPACE, \
     ATLANTIS_NAMESPACE, VAULT_NAMESPACE, HARBOR_NAMESPACE, SONARQUBE_NAMESPACE
@@ -27,8 +27,8 @@ from common.const.parameter_names import CLOUD_PROFILE, OWNER_EMAIL, CLOUD_PROVI
     CLOUD_ACCOUNT_ACCESS_SECRET, CLOUD_REGION, PRIMARY_CLUSTER_NAME, CLUSTER_VERSION, CLUSTER_NETWORK_CIDR, \
     PLATFORM_NAME, VPC_ID, PRIVATE_SUBNET_IDS, PUBLIC_SUBNET_IDS, INTRA_SUBNET_IDS, DATABASE_SUBNET_IDS, \
     ACM_CERTIFICATE_ARN, ALB_INGRESS_GROUP_NAME, ALB_SECURITY_GROUPS, \
-    CLUSTER_SECURITY_GROUP_ID, ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS, \
-    NODE_SECURITY_GROUP_RULES, CLOUDWATCH_LOG_RETENTION_DAYS, \
+    CLUSTER_SECURITY_GROUP_ID, ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS, NODE_SECURITY_GROUP_IDS, NODE_SECURITY_GROUP_RULES, \
+    CLOUDWATCH_LOG_RETENTION_DAYS, \
     DNS_REGISTRAR, DNS_REGISTRAR_ACCESS_TOKEN, DNS_REGISTRAR_ACCESS_KEY, DNS_REGISTRAR_ACCESS_SECRET, \
     DOMAIN_NAME, GIT_PROVIDER, GIT_ORGANIZATION_NAME, GIT_ACCESS_TOKEN, GITOPS_REPOSITORY_NAME, \
     GITOPS_REPOSITORY_TEMPLATE_URL, GITOPS_REPOSITORY_TEMPLATE_BRANCH, DEMO_WORKLOAD, OPTIONAL_SERVICES, \
@@ -385,12 +385,11 @@ def setup(
         # roles
         p.parameters["<CI_IAM_ROLE_RN>"] = hp_out["ci_role"]
         p.parameters["<IAC_PR_AUTOMATION_IAM_ROLE_RN>"] = hp_out["iac_pr_automation_role"]
-        # cert_manager role removed - cert-manager component is not used
+        p.parameters["<CERT_MANAGER_IAM_ROLE_RN>"] = hp_out["cert_manager_role"]
         p.parameters["<EXTERNAL_DNS_IAM_ROLE_RN>"] = hp_out["external_dns_role"]
         p.parameters["<SECRET_MANAGER_IAM_ROLE_RN>"] = hp_out["secret_manager_role"]
         p.parameters["<CLUSTER_AUTOSCALER_IAM_ROLE_RN>"] = hp_out["cluster_autoscaler_role"]
         p.parameters["<BACKUPS_MANAGER_IAM_ROLE_RN>"] = hp_out["backups_manager_role"]
-        p.parameters["<ALB_CONTROLLER_IRSA_ROLE_ARN>"] = hp_out["alb_controller_role"]
 
         # cluster
         p.internals["CC_CLUSTER_ENDPOINT"] = hp_out["cluster_endpoint"]
@@ -657,22 +656,23 @@ def setup(
     # initialize and unseal vault
     if not p.has_checkpoint("secrets-management"):
         click.echo("9/12: Initializing Secrets Manager...")
-        with alive_bar(5, title='Initializing Secrets Manager') as bar:
+        with alive_bar(7, title='Initializing Secrets Manager') as bar:
 
             # default AWS EKS auth token life-time is 14m
             # to be safe should refresh token before proceeding
             kube_client = init_k8s_client(cloud_man, p)
             bar()
 
-            # Wait for AWS Load Balancer Controller
-            try:
-                alb_controller = kube_client.get_deployment("kube-system", "aws-load-balancer-controller")
-                kube_client.wait_for_deployment(alb_controller)
-            except Exception:
-                click.echo("  WARNING: AWS Load Balancer Controller not found, skipping...")
+            # wait for cert manager as it's created just before vault
+            cert_manager = kube_client.get_deployment("cert-manager", "cert-manager")
+            kube_client.wait_for_deployment(cert_manager)
             bar()
 
             external_dns = kube_client.get_deployment("external-dns", "external-dns")
+            kube_client.wait_for_deployment(external_dns)
+            bar()
+
+            external_dns = kube_client.get_deployment("ingress-nginx", "ingress-nginx-controller")
             kube_client.wait_for_deployment(external_dns)
             bar()
 
@@ -1083,53 +1083,40 @@ def prepare_parameters(p, git_man):
     p.parameters["<PUBLIC_SUBNET_IDS>"] = to_tf_list(public_subnets)
     p.parameters["<INTRA_SUBNET_IDS>"] = to_tf_list(intra_subnets)
     
-    # Database subnets
+    # Database subnets (optional)
     database_subnets = p.get_input_param(DATABASE_SUBNET_IDS)
     p.parameters["<DATABASE_SUBNET_IDS>"] = to_tf_list(database_subnets)
     
-    # ACM certificate ARN
+    # ACM certificate for ALB Ingress Controller
     acm_cert_arn = p.get_input_param(ACM_CERTIFICATE_ARN) or ""
     p.parameters["<ACM_CERTIFICATE_ARN>"] = acm_cert_arn
     
     # ALB Ingress configuration
-    # Group name defaults to cluster-name-external if not provided
-    alb_group_name = p.get_input_param(ALB_INGRESS_GROUP_NAME)
-    if not alb_group_name:
-        alb_group_name = f"{p.get_input_param(PRIMARY_CLUSTER_NAME)}-external"
+    cluster_name = p.get_input_param(PRIMARY_CLUSTER_NAME)
+    alb_group_name = p.get_input_param(ALB_INGRESS_GROUP_NAME) or f"{cluster_name}-external"
     p.parameters["<ALB_INGRESS_GROUP_NAME>"] = alb_group_name
     
-    # ALB security groups (comma-separated list)
-    alb_sgs = p.get_input_param(ALB_SECURITY_GROUPS) or ""
-    p.parameters["<ALB_SECURITY_GROUPS>"] = alb_sgs
+    alb_security_groups = p.get_input_param(ALB_SECURITY_GROUPS)
+    p.parameters["<ALB_SECURITY_GROUPS>"] = alb_security_groups or ""
     
-    # ALB public subnets (comma-separated, derived from public subnet IDs)
-    if public_subnets:
-        if isinstance(public_subnets, list):
-            alb_public_subnets = ", ".join(public_subnets)
-        else:
-            alb_public_subnets = public_subnets.replace(",", ", ")
-    else:
-        alb_public_subnets = ""
-    p.parameters["<ALB_PUBLIC_SUBNETS>"] = alb_public_subnets
-    
-    # Security groups
+    # Security groups (optional)
     cluster_sg_id = p.get_input_param(CLUSTER_SECURITY_GROUP_ID) or ""
     p.parameters["<CLUSTER_SECURITY_GROUP_ID>"] = cluster_sg_id
     
-    additional_sgs = p.get_input_param(ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS)
-    p.parameters["<ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS>"] = to_tf_list(additional_sgs)
+    additional_cluster_sgs = p.get_input_param(ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS)
+    p.parameters["<ADDITIONAL_CLUSTER_SECURITY_GROUP_IDS>"] = to_tf_list(additional_cluster_sgs)
     
-    # CloudWatch log retention
-    log_retention = p.get_input_param(CLOUDWATCH_LOG_RETENTION_DAYS)
-    p.parameters["<CLOUDWATCH_LOG_RETENTION_DAYS>"] = str(log_retention) if log_retention else "7"
+    # Node security groups
+    node_sg_ids = p.get_input_param(NODE_SECURITY_GROUP_IDS)
+    p.parameters["<NODE_SECURITY_GROUP_IDS>"] = to_tf_list(node_sg_ids)
     
-    # Node security group rules (as HCL map)
-    node_sg_rules = p.get_input_param(NODE_SECURITY_GROUP_RULES)
-    if node_sg_rules:
-        # If provided as string, assume it's valid HCL
-        p.parameters["<NODE_SECURITY_GROUP_RULES>"] = node_sg_rules
-    else:
-        p.parameters["<NODE_SECURITY_GROUP_RULES>"] = "{}"
+    # Node security group additional rules (JSON format, default empty object)
+    node_sg_rules = p.get_input_param(NODE_SECURITY_GROUP_RULES) or "{}"
+    p.parameters["<NODE_SECURITY_GROUP_RULES>"] = node_sg_rules
+    
+    # CloudWatch configuration
+    cw_retention = p.get_input_param(CLOUDWATCH_LOG_RETENTION_DAYS) or "30"
+    p.parameters["<CLOUDWATCH_LOG_RETENTION_DAYS>"] = str(cw_retention)
     
     platform_name = p.get_input_param(PLATFORM_NAME) or p.get_input_param(PRIMARY_CLUSTER_NAME)
     p.parameters["<PLATFORM_NAME>"] = platform_name
@@ -1152,8 +1139,9 @@ def prepare_parameters(p, git_man):
     p.parameters["<ARGO_WORKFLOWS_VERSION>"] = ARGO_WORKFLOWS_VERSION
     p.parameters["<VAULT_VERSION>"] = VAULT_VERSION
     p.parameters["<EXTERNAL_SECRETS_VERSION>"] = EXTERNAL_SECRETS_VERSION
-    # cert-manager and ingress-nginx removed - not used
+    p.parameters["<CERT_MANAGER_VERSION>"] = CERT_MANAGER_VERSION
     p.parameters["<EXTERNAL_DNS_VERSION>"] = EXTERNAL_DNS_VERSION
+    p.parameters["<INGRESS_NGINX_VERSION>"] = INGRESS_NGINX_VERSION
     p.parameters["<KUBE_PROMETHEUS_STACK_VERSION>"] = KUBE_PROMETHEUS_STACK_VERSION
     p.parameters["<TRIVY_OPERATOR_VERSION>"] = TRIVY_OPERATOR_VERSION
     p.parameters["<ACTIONS_RUNNER_CONTROLLER_VERSION>"] = ACTIONS_RUNNER_CONTROLLER_VERSION
@@ -1163,10 +1151,6 @@ def prepare_parameters(p, git_man):
     p.parameters["<SONARQUBE_VERSION>"] = SONARQUBE_VERSION
     p.parameters["<BACKSTAGE_VERSION>"] = BACKSTAGE_VERSION
     p.parameters["<RELOADER_VERSION>"] = RELOADER_VERSION
-    
-    # AWS Load Balancer Controller
-    p.parameters["<AWS_LOAD_BALANCER_CONTROLLER_VERSION>"] = AWS_LOAD_BALANCER_CONTROLLER_VERSION
-    p.parameters["<AWS_LOAD_BALANCER_CONTROLLER_IMAGE_TAG>"] = AWS_LOAD_BALANCER_CONTROLLER_IMAGE_TAG
 
     # set IaC webhook secret
     if "<IAC_PR_AUTOMATION_WEBHOOK_SECRET>" not in p.parameters:
