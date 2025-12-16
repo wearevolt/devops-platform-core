@@ -315,7 +315,6 @@ def setup(
         tm.check_repository_existence()
         tm.clone()
         tm.build_repo_from_template(p.git_provider)
-        tm.parametrise_tf(p)
 
         p.set_checkpoint("repo-prep")
         p.save_checkpoint()
@@ -323,6 +322,12 @@ def setup(
         click.echo("4/12: Preparing your GitOps code. Done!")
     else:
         click.echo("4/12: Skipped GitOps code prep.")
+
+    # Always re-parametrise files to ensure placeholders are replaced
+    # This is needed when CLI is restarted after checkpoint
+    click.echo("Applying parameters to terraform and gitops files...")
+    tm.parametrise_tf(p)
+    tm.parametrise(p)
 
     # VCS provisioning
     cloud_provider_auth_env_vars = prepare_cloud_provider_auth_env_vars(p)

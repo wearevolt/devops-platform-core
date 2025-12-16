@@ -31,7 +31,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: harbor-portal
+                name: harbor
                 port:
                   number: 80
 
