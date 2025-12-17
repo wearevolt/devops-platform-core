@@ -1,6 +1,8 @@
 import asyncio
 import json
 import re
+import os
+import socket
 import time
 import webbrowser
 from typing import List
@@ -226,6 +228,18 @@ def setup(
                 p.fragments["# <TF_CORE_SERVICES_REMOTE_BACKEND>"] = cloud_man.create_iac_backend_snippet(tf_backend_storage, "core_services")
                 p.save_checkpoint()
                 click.secho(f"Info: Using discovered TF backend bucket: {tf_backend_storage}", fg="green")
+                # Refresh bucket policy for this (possibly new) backend so terraform can read state.
+                # If we don't have the automation role ARN yet, fall back to current caller identity.
+                try:
+                    identity = p.parameters.get("<IAC_PR_AUTOMATION_IAM_ROLE_RN>")
+                    if not identity:
+                        identity = cloud_man._aws_sdk.current_user_arn()  # type: ignore[attr-defined]
+                    cloud_man.protect_iac_state_storage(tf_backend_storage, identity)
+                except Exception as e:
+                    click.secho(
+                        f"Warning: Could not refresh S3 backend bucket policy for '{tf_backend_storage}': {e}",
+                        fg="yellow",
+                    )
 
     if not p.has_checkpoint("preflight"):
         click.echo("1/12: Executing pre-flight checks...")
@@ -297,6 +311,60 @@ def setup(
     # promote input params
     prepare_parameters(p, git_man)
     p.save_checkpoint()
+
+    # AWS-only: keep EKS API endpoint always fresh even when k8s-tf checkpoint is reused.
+    # This prevents dead endpoints (NXDOMAIN) from being reused and misreported as "CoreDNS issues".
+    if p.cloud_provider == CloudProviders.AWS and p.has_checkpoint("k8s-tf"):
+        try:
+            # Ensure we have auth env vars for kubeconfig generation even when running before VCS provisioning section.
+            cloud_provider_auth_env_vars = prepare_cloud_provider_auth_env_vars(p)
+
+            cluster_name = p.parameters["<PRIMARY_CLUSTER_NAME>"]
+            info = cloud_man.get_eks_cluster_connection_info(cluster_name)  # type: ignore[attr-defined]
+            endpoint = (info.get("endpoint") or "").strip()
+            ca_data = (info.get("certificate_authority_data") or "").strip()
+            oidc_issuer = (info.get("oidc_issuer_url") or "").strip()
+
+            if endpoint:
+                prev_endpoint = p.internals.get("CC_CLUSTER_ENDPOINT")
+                endpoint_host = endpoint.replace("https://", "").split("/")[0]
+                dead_dns = False
+                try:
+                    socket.gethostbyname(endpoint_host)
+                except Exception:
+                    dead_dns = True
+
+                if dead_dns or (prev_endpoint and prev_endpoint != endpoint) or (not prev_endpoint):
+                    p.internals["CC_CLUSTER_ENDPOINT"] = endpoint
+                    if ca_data:
+                        p.internals["CC_CLUSTER_CA_CERT_DATA"] = ca_data
+                        p.internals["CC_CLUSTER_CA_CERT_PATH"] = write_ca_cert(ca_data)
+                    if oidc_issuer:
+                        p.internals["CC_CLUSTER_OIDC_ISSUER_URL"] = oidc_issuer
+
+                    # Regenerate kubeconfig so any k8s client usage uses the fresh endpoint
+                    command, command_args = cloud_man.get_k8s_auth_command()
+                    kubeconfig_params = {
+                        "<ENDPOINT>": p.internals["CC_CLUSTER_ENDPOINT"],
+                        "<CLUSTER_AUTH_BASE64>": p.internals.get("CC_CLUSTER_CA_CERT_DATA", ""),
+                        "<CLUSTER_NAME>": cluster_name,
+                        "<CLUSTER_REGION>": p.parameters["<CLOUD_REGION>"],
+                    }
+                    p.internals["KCTL_CONFIG_PATH"] = create_k8s_config(
+                        command, command_args, cloud_provider_auth_env_vars, kubeconfig_params
+                    )
+                    p.save_checkpoint()
+                    click.secho(
+                        f"Info: Refreshed EKS API endpoint from AWS and regenerated kubeconfig: {endpoint}",
+                        fg="green",
+                    )
+        except Exception as e:
+            click.secho(
+                "Warning: Could not refresh EKS endpoint from AWS API. "
+                "If you recreated the cluster or changed region, rerun with --from-checkpoint k8s-tf. "
+                f"Details: {e}",
+                fg="yellow",
+            )
 
     tm = GitOpsTemplateManager(p.get_input_param(GITOPS_REPOSITORY_TEMPLATE_URL),
                                p.get_input_param(GITOPS_REPOSITORY_TEMPLATE_BRANCH),
@@ -558,7 +626,25 @@ def setup(
     if not p.parameters.get("<ALB_CONTROLLER_IRSA_ROLE_ARN>"):
         try:
             hp_tf = TfWrapper(LOCAL_TF_FOLDER_HOSTING_PROVIDER)
-            hp_tf.init()
+            try:
+                hp_tf.init()
+            except Exception as init_err:
+                # Self-heal: if local GitOps terraform got corrupted (e.g. "labels" appears inside terraform {}),
+                # rebuild from the template and retry.
+                msg = str(init_err)
+                if "An argument named \"labels\" is not expected here" in msg and "in terraform" in msg:
+                    click.secho(
+                        "Warning: Detected invalid terraform configuration in local GitOps (labels inside terraform block). "
+                        "Rebuilding GitOps from template and retrying terraform init...",
+                        fg="yellow",
+                    )
+                    tm.clone()
+                    tm.build_repo_from_template(p.git_provider)
+                    tm.parametrise_tf(p)
+                    hp_tf = TfWrapper(LOCAL_TF_FOLDER_HOSTING_PROVIDER)
+                    hp_tf.init()
+                else:
+                    raise
             hp_out = hp_tf.output()
             alb_role = hp_out.get("alb_controller_role")
             if alb_role:
@@ -720,11 +806,26 @@ def setup(
             p.internals["ARGOCD_PASSWORD"] = argo_pas
 
             # get argocd auth token
-            k8s_pod = find_pod_by_name_fragment(
-                kube_config_path=p.internals["KCTL_CONFIG_PATH"],
+            # Avoid relying on kubeconfig parsing here; we already have a working API client
+            # configured with endpoint/token/CA.
+            k8s_pod = kube_client.find_running_pod_by_name_fragment(
+                namespace=ARGOCD_NAMESPACE,
                 name_fragment="argocd-server",
-                namespace=ARGOCD_NAMESPACE
             )
+            # Port-forward uses kubectl which requires kubeconfig file path.
+            # Make this idempotent: (re)generate kubeconfig if it's missing.
+            if not os.path.exists(p.internals["KCTL_CONFIG_PATH"]):
+                command, command_args = cloud_man.get_k8s_auth_command()
+                kubeconfig_params = {
+                    "<ENDPOINT>": p.internals["CC_CLUSTER_ENDPOINT"],
+                    "<CLUSTER_AUTH_BASE64>": p.internals.get("CC_CLUSTER_CA_CERT_DATA", ""),
+                    "<CLUSTER_NAME>": p.parameters["<PRIMARY_CLUSTER_NAME>"],
+                    "<CLUSTER_REGION>": p.parameters["<CLOUD_REGION>"],
+                }
+                cloud_provider_auth_env_vars = prepare_cloud_provider_auth_env_vars(p)
+                p.internals["KCTL_CONFIG_PATH"] = create_k8s_config(
+                    command, command_args, cloud_provider_auth_env_vars, kubeconfig_params
+                )
             # Transitioned to asynchronous functions to address compatibility issues with the kr8s library.
             # Previously, the synchronous interaction with kr8s sometimes led to deadlocks and errors because the kr8s
             # library is inherently asynchronous.

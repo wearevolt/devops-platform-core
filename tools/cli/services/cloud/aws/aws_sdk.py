@@ -194,6 +194,9 @@ class AwsSdk:
         if region is None:
             region = self.region
 
+        # Resolve account id (used in policy principals below)
+        account_id = self.account_id
+
         # Get ARN patterns for current user (handles SSO/assumed roles with wildcards)
         user_arn_patterns = self.current_user_arn_patterns()
         
@@ -201,10 +204,10 @@ class AwsSdk:
         allowed_principals = [
             *user_arn_patterns,  # Current user patterns (with wildcards for SSO)
             identity,            # Atlantis IAM role
-            f"arn:aws:iam::{self._account_id}:root",  # Account root (always include for recovery)
+            f"arn:aws:iam::{account_id}:root",  # Account root (always include for recovery)
             # Always allow AdministratorAccess SSO role (any session)
-            f"arn:aws:sts::{self._account_id}:assumed-role/AWSReservedSSO_AdministratorAccess_*/*",
-            f"arn:aws:iam::{self._account_id}:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_AdministratorAccess_*",
+            f"arn:aws:sts::{account_id}:assumed-role/AWSReservedSSO_AdministratorAccess_*/*",
+            f"arn:aws:iam::{account_id}:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_AdministratorAccess_*",
         ]
         
         logger.info(f"Setting bucket policy for {bucket_name} with allowed principals: {allowed_principals}")
@@ -329,6 +332,32 @@ class AwsSdk:
                 "token": token
             }
         }
+
+    def describe_eks_cluster(self, cluster_name: str, region: str = None) -> dict:
+        """Describe EKS cluster and return connection-critical fields.
+
+        Returns dict with keys:
+          - endpoint
+          - certificate_authority_data
+          - oidc_issuer_url
+        """
+        if region is None:
+            region = self.region
+        eks_client = self._session_manager.session.client("eks", region_name=region)
+        try:
+            resp = eks_client.describe_cluster(name=cluster_name)
+            c = resp["cluster"]
+            endpoint = c.get("endpoint", "")
+            ca_data = (c.get("certificateAuthority") or {}).get("data", "")
+            oidc_issuer = ((c.get("identity") or {}).get("oidc") or {}).get("issuer", "")
+            return {
+                "endpoint": endpoint,
+                "certificate_authority_data": ca_data,
+                "oidc_issuer_url": oidc_issuer,
+            }
+        except ClientError as e:
+            logger.error(f"Failed to describe EKS cluster '{cluster_name}' in region '{region}': {e}")
+            raise
 
     @staticmethod
     def _get_expiration_time():

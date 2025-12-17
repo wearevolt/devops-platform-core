@@ -16,6 +16,7 @@ locals {
   cd_webhook_url        = "https://<CD_INGRESS_URL>/api/webhook"
   cluster_name          = "<PRIMARY_CLUSTER_NAME>"
   vcs_owner             = "<GIT_ORGANIZATION_NAME>"
+  vcs_bot_username      = "<GIT_USER_LOGIN>"
   vcs_subscription_plan = <GIT_SUBSCRIPTION_PLAN> # bool true(paid plans) / false (free tier)
 }
 
@@ -29,6 +30,7 @@ module "vcs" {
   cd_webhook_url               = local.cd_webhook_url
   cd_webhook_secret            = var.cd_webhook_secret
   vcs_bot_ssh_public_key       = var.vcs_bot_ssh_public_key
+  vcs_bot_username             = local.vcs_bot_username
   workloads                    = var.workloads
   cluster_name                 = local.cluster_name
   vcs_owner                    = local.vcs_owner

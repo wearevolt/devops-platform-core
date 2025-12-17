@@ -37,9 +37,12 @@ resource "github_branch_protection" "this" {
   pattern                         = var.default_branch_name
   enforce_admins                  = true
   allows_deletions                = false
-  allows_force_pushes             = false
+  allows_force_pushes             = var.allows_force_pushes
   required_linear_history         = true
   require_conversation_resolution = true
+
+  force_push_bypassers = var.force_push_bypassers
+  push_restrictions    = var.push_restrictions
 
   # required_status_checks {
   #   strict   = false

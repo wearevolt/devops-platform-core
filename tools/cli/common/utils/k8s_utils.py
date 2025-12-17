@@ -3,9 +3,11 @@ from typing import Optional
 import kr8s
 from kr8s import NotFoundError
 from kubernetes import client as k8s_client, config as k8s_config
+from kubernetes.config.config_exception import ConfigException
 from kubernetes.client.rest import ApiException
 
 from common.logging_config import logger
+from services.k8s.config_builder import repair_kubeconfig_file
 
 
 def find_pod_by_name_fragment(
@@ -32,7 +34,17 @@ def find_pod_by_name_fragment(
     """
     try:
         logger.info(f"Loading Kubernetes configuration from {kube_config_path}")
-        k8s_config.load_kube_config(kube_config_path)
+        # Idempotency: kubeconfig can be partially written by a previous run (e.g. contexts: []).
+        # Attempt repair before loading, and retry once if load fails.
+        repair_kubeconfig_file(kube_config_path)
+        try:
+            k8s_config.load_kube_config(kube_config_path)
+        except ConfigException as e:
+            logger.warning(f"Kubeconfig invalid, attempting auto-repair and retry: {e}")
+            if repair_kubeconfig_file(kube_config_path):
+                k8s_config.load_kube_config(kube_config_path)
+            else:
+                raise
 
         v1_api = k8s_client.CoreV1Api()
         logger.info(f"Searching for pods containing '{name_fragment}' in their name in namespace {namespace}")

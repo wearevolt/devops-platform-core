@@ -1,17 +1,18 @@
 import os
 import pathlib
 import shutil
-import re
 from pathlib import Path
 from urllib.error import HTTPError
 
 import requests
 from ghrepo import GHRepo
 from git import Repo, RemoteProgress, GitError, Actor
+from git.exc import GitCommandError
 
 from common.const.common_path import LOCAL_TF_FOLDER, LOCAL_GITOPS_FOLDER
 from common.const.const import GITOPS_REPOSITORY_URL, GITOPS_REPOSITORY_BRANCH
 from common.enums.git_providers import GitProviders
+from common.logging_config import logger
 from common.state_store import StateStore
 from common.tracing_decorator import trace
 
@@ -91,17 +92,62 @@ class GitOpsTemplateManager:
                 elif "origin" not in [r.name for r in repo.remotes]:
                     repo.create_remote(name='origin', url=path)
 
-                # always keep branch name stable
-                repo.git.checkout("-B", "main")
+                # Always base our commit on the latest origin/main WITHOUT force-pushing.
+                # This is required when the target repo has branch protection (no force pushes).
+                try:
+                    repo.git.fetch("origin", "main")
+                except GitCommandError as e:
+                    logger.warning(f"Git fetch failed before push (continuing): {e}")
 
-                # commit only when there are changes
+                # Keep local changes (generated files) while we fast-forward to origin/main.
+                # We stash, reset to origin/main, then re-apply the stash so push is a fast-forward.
+                try:
+                    repo.git.add(all=True)
+                    if repo.is_dirty(untracked_files=True):
+                        repo.git.stash("push", "-u", "-m", "cgdevx-generated")
+                except GitCommandError as e:
+                    logger.warning(f"Git stash failed (continuing without stash): {e}")
+
+                # Ensure branch exists and tracks origin/main if available
+                try:
+                    repo.git.checkout("-B", "main", "origin/main")
+                except GitCommandError:
+                    repo.git.checkout("-B", "main")
+
+                # Re-apply generated changes
+                try:
+                    stashes = repo.git.stash("list")
+                    if "cgdevx-generated" in stashes:
+                        repo.git.stash("pop")
+                except GitCommandError as e:
+                    logger.warning(f"Git stash pop failed (may require manual resolution): {e}")
+
+                # Commit only when there are changes
                 repo.git.add(all=True)
                 if repo.is_dirty(untracked_files=True):
                     author = Actor(name=git_user_name, email=git_user_email)
                     repo.index.commit("chore: update generated gitops", author=author, committer=author)
 
-                # force-with-lease so the remote reflects current generated state (idempotent re-runs)
-                repo.git.push("--force-with-lease", "origin", "main")
+                # Normal push (no force). If protected branch requires PR, push will be rejected.
+                try:
+                    repo.git.push("origin", "main")
+                except GitCommandError as e:
+                    stderr = e.stderr or ""
+                    # If branch protection blocks direct pushes, push to a separate branch instead.
+                    if "Protected branch update failed" in stderr or "protected branch hook declined" in stderr:
+                        import datetime
+                        branch = "cgdevx/generated/" + datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+                        logger.warning(
+                            f"Protected branch prevents direct push to main; pushing to branch '{branch}' instead."
+                        )
+                        repo.git.push("origin", f"HEAD:refs/heads/{branch}")
+                        raise GitCommandError(
+                            e.command,
+                            e.status,
+                            e.stderr,
+                            f"GitOps updates pushed to '{branch}'. Create a PR to merge into main."
+                        )
+                    raise
 
         except GitError as e:
             raise e
@@ -149,7 +195,7 @@ class GitOpsTemplateManager:
         self.__file_replace(state, LOCAL_TF_FOLDER)
         # Some generated repos may already contain hardcoded Terraform backends (no placeholders).
         # Make backend bucket selection idempotent by overwriting backend blocks based on current state.
-        self.__rewrite_tf_backends(state, LOCAL_TF_FOLDER)
+        self.__rewrite_tf_backend_bucket(state, LOCAL_TF_FOLDER)
 
     @trace()
     def parametrise(self, state: StateStore):
@@ -174,7 +220,7 @@ class GitOpsTemplateManager:
             raise Exception(f"Error while parametrizing file: {file_path}", e)
 
     @staticmethod
-    def __rewrite_tf_backends(state: StateStore, tf_root: Path):
+    def __rewrite_tf_backend_bucket(state: StateStore, tf_root: Path):
         """
         Ensure terraform backend blocks in terraform/*/*.tf always use the currently selected backend bucket.
 
@@ -190,8 +236,6 @@ class GitOpsTemplateManager:
             "core_services": "# <TF_CORE_SERVICES_REMOTE_BACKEND>",
         }
 
-        backend_re = re.compile(r'(?:^|\n)(?P<indent>[ \t]*)backend\s+"s3"\s*\{[\s\S]*?\n(?P=indent)\}', re.MULTILINE)
-
         for service_dir in tf_root.iterdir():
             if not service_dir.is_dir():
                 continue
@@ -202,6 +246,20 @@ class GitOpsTemplateManager:
             replacement = state.fragments.get(fragment_key)
             if not replacement:
                 continue
+            # Try to extract bucket name from the backend fragment
+            bucket = None
+            for line in replacement.splitlines():
+                s = line.strip()
+                if s.startswith("bucket"):
+                    # bucket = "name"
+                    parts = s.split("=", 1)
+                    if len(parts) == 2:
+                        val = parts[1].strip().strip('"')
+                        if val:
+                            bucket = val
+                            break
+            if not bucket:
+                continue
 
             for tf_file in service_dir.rglob("*.tf"):
                 try:
@@ -209,21 +267,48 @@ class GitOpsTemplateManager:
                 except Exception:
                     continue
 
-                m = backend_re.search(raw)
-                if not m:
-                    continue
+                lines = raw.splitlines()
+                updated_lines = []
+                in_s3_backend = False
+                backend_brace_depth = 0
+                found_bucket_line = False
 
-                indent = m.group("indent") or ""
-                # Indent replacement to match existing backend indentation
-                repl_lines = []
-                for i, line in enumerate(replacement.splitlines()):
-                    if i == 0:
-                        repl_lines.append(f"{indent}{line.rstrip()}")
-                    else:
-                        repl_lines.append(f"{indent}{line.rstrip()}" if line.strip() else line)
-                repl = "\n" + "\n".join(repl_lines)
+                for line in lines:
+                    stripped = line.strip()
 
-                updated = backend_re.sub(repl, raw, count=1)
+                    if not in_s3_backend and stripped.startswith('backend "s3"'):
+                        in_s3_backend = True
+                        backend_brace_depth = 0
+                        found_bucket_line = False
+                        updated_lines.append(line)
+                        # Count braces on this line
+                        backend_brace_depth += line.count("{") - line.count("}")
+                        continue
+
+                    if in_s3_backend:
+                        backend_brace_depth += line.count("{") - line.count("}")
+
+                        if stripped.startswith("bucket") and "=" in stripped:
+                            indent = line[: len(line) - len(line.lstrip())]
+                            updated_lines.append(f'{indent}bucket = "{bucket}"')
+                            found_bucket_line = True
+                        else:
+                            # Before closing brace, inject bucket if missing
+                            if backend_brace_depth <= 0 and stripped.startswith("}"):
+                                if not found_bucket_line:
+                                    indent = line[: len(line) - len(line.lstrip())]
+                                    updated_lines.insert(len(updated_lines), f'{indent}  bucket = "{bucket}"')
+                                    found_bucket_line = True
+                                updated_lines.append(line)
+                                in_s3_backend = False
+                                backend_brace_depth = 0
+                            else:
+                                updated_lines.append(line)
+                        continue
+
+                    updated_lines.append(line)
+
+                updated = "\n".join(updated_lines) + ("\n" if raw.endswith("\n") else "")
                 if updated != raw:
                     try:
                         tf_file.write_text(updated)

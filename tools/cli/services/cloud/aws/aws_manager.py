@@ -185,6 +185,11 @@ class AWSManager(CloudProviderManager):
         return token['status']['token']
 
     @trace()
+    def get_eks_cluster_connection_info(self, cluster_name: str) -> dict:
+        """Source-of-truth cluster connection info from AWS API (not from cached state)."""
+        return self._aws_sdk.describe_eks_cluster(cluster_name=cluster_name, region=self.region)
+
+    @trace()
     def evaluate_permissions(self) -> bool:
         """
         Check if provided credentials have required permissions

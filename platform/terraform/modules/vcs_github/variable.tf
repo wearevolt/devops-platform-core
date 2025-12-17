@@ -30,6 +30,12 @@ variable "vcs_bot_ssh_public_key" {
   default = ""
 }
 
+variable "vcs_bot_username" {
+  description = "GitHub username of the bot/user that pushes generated GitOps (used for branch protection bypass)."
+  type        = string
+  default     = ""
+}
+
 variable "vcs_subscription_plan" {
   description = "True for advanced github/gitlab plan. False for free tier"
   type        = bool

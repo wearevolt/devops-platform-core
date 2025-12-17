@@ -85,3 +85,22 @@ variable "vcs_subscription_plan" {
   type        = bool
   default     = false
 }
+
+# Branch protection fine-tuning (GitOps automation)
+variable "allows_force_pushes" {
+  description = "Whether to allow force pushes on the protected branch"
+  type        = bool
+  default     = false
+}
+
+variable "force_push_bypassers" {
+  description = "Actors allowed to force-push even when branch protection is enabled. Use '/username' or 'org/team'."
+  type        = list(string)
+  default     = []
+}
+
+variable "push_restrictions" {
+  description = "Optional: restrict who can push. Use '/username' or 'org/team'. Empty means no restriction."
+  type        = list(string)
+  default     = []
+}

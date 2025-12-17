@@ -228,6 +228,21 @@ class KubeClient:
 
     @trace()
     @exponential_backoff()
+    def find_running_pod_by_name_fragment(self, namespace: str, name_fragment: str):
+        """
+        Find the first Running pod in a namespace whose name contains name_fragment.
+        Uses the already configured API client (endpoint/token/CA) so it does not depend on kubeconfig files.
+        """
+        api_v1_instance = client.CoreV1Api(client.ApiClient(self._configuration))
+        res = api_v1_instance.list_namespaced_pod(namespace=namespace, watch=False)
+        for pod in res.items:
+            if pod.metadata and pod.metadata.name and name_fragment in pod.metadata.name:
+                if pod.status and pod.status.phase == "Running":
+                    return pod
+        return None
+
+    @trace()
+    @exponential_backoff()
     def get_stateful_set_objects(self, namespace: str, name: str):
         """
         Reads a StatefulSet.
