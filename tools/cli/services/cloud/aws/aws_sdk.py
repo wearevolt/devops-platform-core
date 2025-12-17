@@ -366,3 +366,31 @@ class AwsSdk:
             logger.error(e)
             return False
         return True
+
+    def list_buckets(self) -> list[str]:
+        """List all S3 buckets in the account."""
+        s3_client = self._session_manager.session.client("s3")
+        resp = s3_client.list_buckets()
+        return [b["Name"] for b in resp.get("Buckets", [])]
+
+    def bucket_exists(self, bucket_name: str, region: str = None) -> bool:
+        """Check if an S3 bucket exists and is accessible."""
+        if region is None:
+            region = self.region
+        s3_client = self._session_manager.session.client("s3", region_name=region)
+        try:
+            s3_client.head_bucket(Bucket=bucket_name)
+            return True
+        except ClientError:
+            return False
+
+    def object_exists(self, bucket_name: str, key: str, region: str = None) -> bool:
+        """Check if an S3 object exists."""
+        if region is None:
+            region = self.region
+        s3_client = self._session_manager.session.client("s3", region_name=region)
+        try:
+            s3_client.head_object(Bucket=bucket_name, Key=key)
+            return True
+        except ClientError:
+            return False

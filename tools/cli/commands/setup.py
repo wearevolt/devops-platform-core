@@ -195,6 +195,38 @@ def setup(
 
     git_man = init_git_provider(p)
 
+    # Ensure Terraform backend bucket in local state is not stale.
+    # If the previously stored bucket was deleted/recreated, discover the current bucket containing state
+    # and refresh backend fragments so old bucket names never resurface.
+    if p.cloud_provider == CloudProviders.AWS:
+        desired_bucket = p.internals.get("TF_BACKEND_STORAGE_NAME")
+        # Fast path: if we already have a bucket and it exists, keep it
+        bucket_ok = False
+        if desired_bucket:
+            try:
+                bucket_ok = cloud_man._aws_sdk.bucket_exists(desired_bucket, region=cloud_man.region)  # type: ignore[attr-defined]
+            except Exception:
+                bucket_ok = False
+
+        if not bucket_ok:
+            # Try to discover an existing bucket with actual state objects
+            discovered = None
+            try:
+                discovered = cloud_man.resolve_iac_state_storage(p.get_input_param(GITOPS_REPOSITORY_NAME))  # type: ignore[attr-defined]
+            except Exception:
+                discovered = None
+
+            if discovered:
+                p.internals["TF_BACKEND_STORAGE_NAME"] = discovered
+                tf_backend_storage = discovered
+                p.fragments["# <TF_VCS_REMOTE_BACKEND>"] = cloud_man.create_iac_backend_snippet(tf_backend_storage, "vcs")
+                p.fragments["# <TF_HOSTING_REMOTE_BACKEND>"] = cloud_man.create_iac_backend_snippet(tf_backend_storage, "hosting_provider")
+                p.fragments["# <TF_SECRETS_REMOTE_BACKEND>"] = cloud_man.create_iac_backend_snippet(tf_backend_storage, "secrets")
+                p.fragments["# <TF_USERS_REMOTE_BACKEND>"] = cloud_man.create_iac_backend_snippet(tf_backend_storage, "users")
+                p.fragments["# <TF_CORE_SERVICES_REMOTE_BACKEND>"] = cloud_man.create_iac_backend_snippet(tf_backend_storage, "core_services")
+                p.save_checkpoint()
+                click.secho(f"Info: Using discovered TF backend bucket: {tf_backend_storage}", fg="green")
+
     if not p.has_checkpoint("preflight"):
         click.echo("1/12: Executing pre-flight checks...")
 

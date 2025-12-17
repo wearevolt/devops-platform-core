@@ -61,6 +61,45 @@ class AWSManager(CloudProviderManager):
         return tf_backend_storage_name, ""
 
     @trace()
+    def resolve_iac_state_storage(self, name_prefix: str, **kwargs: dict) -> str | None:
+        """
+        Discover the active Terraform remote state bucket for this platform.
+        Prefers buckets that already contain terraform state objects.
+        """
+        region = self.region
+        if kwargs and "region" in kwargs:
+            region = kwargs["region"]
+
+        prefix = f"{name_prefix}-"
+        try:
+            buckets = [b for b in self._aws_sdk.list_buckets() if b.startswith(prefix)]
+        except Exception:
+            return None
+
+        state_keys = [
+            "terraform/hosting_provider/terraform.tfstate",
+            "terraform/vcs/terraform.tfstate",
+            "terraform/secrets/terraform.tfstate",
+            "terraform/users/terraform.tfstate",
+            "terraform/core_services/terraform.tfstate",
+        ]
+
+        best_bucket = None
+        best_score = -1
+        for b in buckets:
+            if not self._aws_sdk.bucket_exists(b, region=region):
+                continue
+            score = 0
+            for k in state_keys:
+                if self._aws_sdk.object_exists(b, k, region=region):
+                    score += 1
+            if score > best_score:
+                best_bucket = b
+                best_score = score
+
+        return best_bucket
+
+    @trace()
     def protect_iac_state_storage(self, name: str, identity: str, **kwargs: dict):
         region = self.region
         if kwargs and "region" in kwargs:
