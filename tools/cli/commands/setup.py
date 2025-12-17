@@ -521,6 +521,29 @@ def setup(
     # This guarantees placeholders are re-parametrised and pushed even when restarting from later checkpoints.
     click.echo("7/12: Ensuring GitOps code is up-to-date...")
 
+    # When restarting from later checkpoints, we may skip hosting_provider TF apply/output,
+    # but still need some values (e.g. ALB controller IRSA role ARN) to replace placeholders.
+    if not p.parameters.get("<ALB_CONTROLLER_IRSA_ROLE_ARN>"):
+        try:
+            hp_tf = TfWrapper(LOCAL_TF_FOLDER_HOSTING_PROVIDER)
+            hp_tf.init()
+            hp_out = hp_tf.output()
+            alb_role = hp_out.get("alb_controller_role")
+            if alb_role:
+                p.parameters["<ALB_CONTROLLER_IRSA_ROLE_ARN>"] = alb_role
+            else:
+                click.secho(
+                    "Warning: Terraform output 'alb_controller_role' not found; "
+                    "'<ALB_CONTROLLER_IRSA_ROLE_ARN>' will remain empty",
+                    fg="yellow",
+                )
+        except Exception as e:
+            click.secho(
+                f"Warning: Could not read hosting_provider terraform outputs to fill "
+                f"'<ALB_CONTROLLER_IRSA_ROLE_ARN>': {e}",
+                fg="yellow",
+            )
+
     tm.parametrise(p)
 
     tm.upload(
