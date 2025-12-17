@@ -127,6 +127,9 @@ class KubeClient:
 
             return res
         except ApiException as e:
+            # If already exists, treat as success (idempotent)
+            if e.status == 409:
+                return e.body
             raise e
 
     @trace()

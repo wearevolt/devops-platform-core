@@ -84,14 +84,23 @@ class GitOpsTemplateManager:
             repo = Repo.init(LOCAL_GITOPS_FOLDER, **{"initial-branch": "main"})
 
             with repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+                # ensure we have origin
                 if not any(repo.remotes):
-                    origin = repo.create_remote(name='origin', url=path)
+                    repo.create_remote(name='origin', url=path)
+                elif "origin" not in [r.name for r in repo.remotes]:
+                    repo.create_remote(name='origin', url=path)
 
+                # always keep branch name stable
+                repo.git.checkout("-B", "main")
+
+                # commit only when there are changes
                 repo.git.add(all=True)
-                author = Actor(name=git_user_name, email=git_user_email)
-                repo.index.commit("initial", author=author, committer=author)
+                if repo.is_dirty(untracked_files=True):
+                    author = Actor(name=git_user_name, email=git_user_email)
+                    repo.index.commit("chore: update generated gitops", author=author, committer=author)
 
-                repo.remotes.origin.push(repo.active_branch.name)
+                # force-with-lease so the remote reflects current generated state (idempotent re-runs)
+                repo.git.push("--force-with-lease", "origin", "main")
 
         except GitError as e:
             raise e

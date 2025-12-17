@@ -19,7 +19,8 @@ from common.versions import (
     CERT_MANAGER_VERSION, EXTERNAL_DNS_VERSION, INGRESS_NGINX_VERSION,
     KUBE_PROMETHEUS_STACK_VERSION, TRIVY_OPERATOR_VERSION,
     ACTIONS_RUNNER_CONTROLLER_VERSION, GITLAB_RUNNER_VERSION,
-    ATLANTIS_VERSION, HARBOR_VERSION, SONARQUBE_VERSION, BACKSTAGE_VERSION, RELOADER_VERSION
+    ATLANTIS_VERSION, HARBOR_VERSION, SONARQUBE_VERSION, BACKSTAGE_VERSION, RELOADER_VERSION,
+    AWS_LOAD_BALANCER_CONTROLLER_VERSION, AWS_LOAD_BALANCER_CONTROLLER_IMAGE_TAG
 )
 from common.const.namespaces import ARGOCD_NAMESPACE, ARGO_WORKFLOW_NAMESPACE, EXTERNAL_SECRETS_OPERATOR_NAMESPACE, \
     ATLANTIS_NAMESPACE, VAULT_NAMESPACE, HARBOR_NAMESPACE, SONARQUBE_NAMESPACE
@@ -315,7 +316,6 @@ def setup(
         tm.check_repository_existence()
         tm.clone()
         tm.build_repo_from_template(p.git_provider)
-        tm.parametrise_tf(p)
 
         p.set_checkpoint("repo-prep")
         p.save_checkpoint()
@@ -323,6 +323,10 @@ def setup(
         click.echo("4/12: Preparing your GitOps code. Done!")
     else:
         click.echo("4/12: Skipped GitOps code prep.")
+
+    # Always (re)parametrise templates using current state/inputs.
+    # This prevents stale placeholders when repo-prep checkpoint exists.
+    tm.parametrise_tf(p)
 
     # VCS provisioning
     cloud_provider_auth_env_vars = prepare_cloud_provider_auth_env_vars(p)
@@ -382,14 +386,23 @@ def setup(
         # store out params
         # network
         p.parameters["<NETWORK_ID>"] = hp_out["network_id"]
-        # roles
-        p.parameters["<CI_IAM_ROLE_RN>"] = hp_out["ci_role"]
-        p.parameters["<IAC_PR_AUTOMATION_IAM_ROLE_RN>"] = hp_out["iac_pr_automation_role"]
-        p.parameters["<CERT_MANAGER_IAM_ROLE_RN>"] = hp_out["cert_manager_role"]
-        p.parameters["<EXTERNAL_DNS_IAM_ROLE_RN>"] = hp_out["external_dns_role"]
-        p.parameters["<SECRET_MANAGER_IAM_ROLE_RN>"] = hp_out["secret_manager_role"]
-        p.parameters["<CLUSTER_AUTOSCALER_IAM_ROLE_RN>"] = hp_out["cluster_autoscaler_role"]
-        p.parameters["<BACKUPS_MANAGER_IAM_ROLE_RN>"] = hp_out["backups_manager_role"]
+
+        # roles - helper to avoid KeyError on missing outputs
+        def get_role(key: str, placeholder: str) -> str:
+            value = hp_out.get(key)
+            if not value:
+                click.secho(f"Warning: Terraform output '{key}' not found, '{placeholder}' will be empty", fg="yellow")
+                return ""
+            return value
+
+        p.parameters["<CI_IAM_ROLE_RN>"] = get_role("ci_role", "<CI_IAM_ROLE_RN>")
+        p.parameters["<IAC_PR_AUTOMATION_IAM_ROLE_RN>"] = get_role("iac_pr_automation_role", "<IAC_PR_AUTOMATION_IAM_ROLE_RN>")
+        p.parameters["<CERT_MANAGER_IAM_ROLE_RN>"] = get_role("cert_manager_role", "<CERT_MANAGER_IAM_ROLE_RN>")
+        p.parameters["<EXTERNAL_DNS_IAM_ROLE_RN>"] = get_role("external_dns_role", "<EXTERNAL_DNS_IAM_ROLE_RN>")
+        p.parameters["<SECRET_MANAGER_IAM_ROLE_RN>"] = get_role("secret_manager_role", "<SECRET_MANAGER_IAM_ROLE_RN>")
+        p.parameters["<CLUSTER_AUTOSCALER_IAM_ROLE_RN>"] = get_role("cluster_autoscaler_role", "<CLUSTER_AUTOSCALER_IAM_ROLE_RN>")
+        p.parameters["<BACKUPS_MANAGER_IAM_ROLE_RN>"] = get_role("backups_manager_role", "<BACKUPS_MANAGER_IAM_ROLE_RN>")
+        p.parameters["<ALB_CONTROLLER_IRSA_ROLE_ARN>"] = get_role("alb_controller_role", "<ALB_CONTROLLER_IRSA_ROLE_ARN>")
 
         # cluster
         p.internals["CC_CLUSTER_ENDPOINT"] = hp_out["cluster_endpoint"]
@@ -663,25 +676,23 @@ def setup(
             kube_client = init_k8s_client(cloud_man, p)
             bar()
 
-            # wait for cert manager as it's created just before vault
-            cert_manager = kube_client.get_deployment("cert-manager", "cert-manager")
-            kube_client.wait_for_deployment(cert_manager)
-            bar()
-
             external_dns = kube_client.get_deployment("external-dns", "external-dns")
             kube_client.wait_for_deployment(external_dns)
             bar()
 
-            external_dns = kube_client.get_deployment("ingress-nginx", "ingress-nginx-controller")
-            kube_client.wait_for_deployment(external_dns)
-            bar()
-
-            # wait for vault readiness
+            # wait for vault readiness (handle delayed creation)
+            vault_ss = None
+            for attempt in range(40):  # ~10 minutes with 15s intervals
             try:
                 vault_ss = kube_client.get_stateful_set_objects(VAULT_NAMESPACE, "vault")
-            except Exception as e:
-                raise click.ClickException("Vault service creation taking longer than expected. Please verify manually "
-                                           "and restart")
+                    break
+                except Exception:
+                    time.sleep(15)
+            if not vault_ss:
+                raise click.ClickException(
+                    "Vault StatefulSet not found after waiting ~10 minutes. "
+                    "Ensure ArgoCD app 'vault-components' is synced and retry."
+                )
             kube_client.wait_for_stateful_set(vault_ss, 600, wait_availability=False)
             bar()
 
@@ -987,9 +998,9 @@ def show_credentials(p):
     
     try:
         vault_client = hvac.Client(url=f'https://{vault_url}', token=vault_token)
-        res = vault_client.secrets.kv.v2.read_secret(path=f"/{user_name}", mount_point='users/')
-        if "data" in res:
-            user_pass = res["data"]["data"]["initial-password"]
+    res = vault_client.secrets.kv.v2.read_secret(path=f"/{user_name}", mount_point='users/')
+    if "data" in res:
+        user_pass = res["data"]["data"]["initial-password"]
         else:
             user_pass = "<not available>"
     except Exception as e:
@@ -1098,6 +1109,17 @@ def prepare_parameters(p, git_man):
     
     alb_security_groups = p.get_input_param(ALB_SECURITY_GROUPS)
     p.parameters["<ALB_SECURITY_GROUPS>"] = alb_security_groups or ""
+
+    # ALB public subnets for ingress (raw CSV list for annotations)
+    def to_csv(subnets):
+        if not subnets:
+            return ""
+        if isinstance(subnets, list):
+            return ",".join(subnets)
+        return subnets
+
+    alb_public_subnets = p.get_input_param(PUBLIC_SUBNET_IDS)
+    p.parameters["<ALB_PUBLIC_SUBNETS>"] = to_csv(alb_public_subnets)
     
     # Security groups (optional)
     cluster_sg_id = p.get_input_param(CLUSTER_SECURITY_GROUP_ID) or ""
@@ -1151,6 +1173,8 @@ def prepare_parameters(p, git_man):
     p.parameters["<SONARQUBE_VERSION>"] = SONARQUBE_VERSION
     p.parameters["<BACKSTAGE_VERSION>"] = BACKSTAGE_VERSION
     p.parameters["<RELOADER_VERSION>"] = RELOADER_VERSION
+    p.parameters["<AWS_LOAD_BALANCER_CONTROLLER_VERSION>"] = AWS_LOAD_BALANCER_CONTROLLER_VERSION
+    p.parameters["<AWS_LOAD_BALANCER_CONTROLLER_IMAGE_TAG>"] = AWS_LOAD_BALANCER_CONTROLLER_IMAGE_TAG
 
     # set IaC webhook secret
     if "<IAC_PR_AUTOMATION_WEBHOOK_SECRET>" not in p.parameters:
