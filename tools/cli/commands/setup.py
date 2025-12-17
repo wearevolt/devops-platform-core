@@ -445,19 +445,21 @@ def setup(
     else:
         click.echo("3/12: Skipped setting initial parameters.")
 
+    # GitOps generation must be idempotent.
+    #
+    # Rationale: when resuming from checkpoints, the local GitOps folder may contain stale content
+    # (or may not exist at all). If we don't re-clone & re-build from the template, we can end up
+    # pushing "old code" into the target GitOps repo, and ArgoCD will correctly sync that old code.
+    click.echo("4/12: Preparing your GitOps code...")
+    tm.check_repository_existence()
+    tm.clone()
+    tm.build_repo_from_template(p.git_provider)
+
     if not p.has_checkpoint("repo-prep"):
-        click.echo("4/12: Preparing your GitOps code...")
-
-        tm.check_repository_existence()
-        tm.clone()
-        tm.build_repo_from_template(p.git_provider)
-
         p.set_checkpoint("repo-prep")
         p.save_checkpoint()
 
-        click.echo("4/12: Preparing your GitOps code. Done!")
-    else:
-        click.echo("4/12: Skipped GitOps code prep.")
+    click.echo("4/12: Preparing your GitOps code. Done!")
 
     # Always (re)parametrise templates using current state/inputs.
     # This prevents stale placeholders when repo-prep checkpoint exists.
@@ -669,6 +671,8 @@ def setup(
         p.internals["DEFAULT_SSH_PRIVATE_KEY_PATH"],
         p.internals["GIT_USER_NAME"],
         p.internals["GIT_USER_EMAIL"],
+        git_provider=p.git_provider,
+        git_access_token=p.internals.get("GIT_ACCESS_TOKEN"),
     )
 
     p.set_checkpoint("gitops-vcs")
@@ -954,8 +958,8 @@ def setup(
             kube_client.wait_for_ingress(ingress)
             bar()
 
-            tls_cert = kube_client.get_certificate(VAULT_NAMESPACE, "vault-tls")
-            kube_client.wait_for_certificate(tls_cert)
+            # We do NOT use cert-manager in this platform. TLS is terminated at ALB/ACM.
+            # Keep progress bar step for backwards-compatibility with older flows.
             bar()
 
             wait_http_endpoint_readiness(f'https://{p.parameters["<SECRET_MANAGER_INGRESS_URL>"]}')
@@ -1072,8 +1076,7 @@ def setup(
             kube_client.wait_for_ingress(harbor_ingress)
             bar()
 
-            harbor_tls_cert = kube_client.get_certificate(HARBOR_NAMESPACE, "harbor-tls")
-            kube_client.wait_for_certificate(harbor_tls_cert)
+            # We do NOT use cert-manager in this platform. TLS is terminated at ALB/ACM.
             bar()
 
             # wait for sonarqube readiness
@@ -1088,8 +1091,7 @@ def setup(
             kube_client.wait_for_ingress(sonar_ingress)
             bar()
 
-            sonar_tls_cert = kube_client.get_certificate(SONARQUBE_NAMESPACE, "sonarqube-tls")
-            kube_client.wait_for_certificate(sonar_tls_cert)
+            # We do NOT use cert-manager in this platform. TLS is terminated at ALB/ACM.
             bar()
 
             # wait for registry API endpoint readiness

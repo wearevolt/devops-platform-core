@@ -10,8 +10,18 @@ def trace():
         def wrapper(*args, **kwargs):
             level = logger.getEffectiveLevel()
             try:
-                args_repr = [repr(a) for a in args]
-                kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+                def _redact(k: str, v):
+                    key = (k or "").lower()
+                    if any(s in key for s in ["token", "secret", "password", "private_key", "access_key"]):
+                        return "<redacted>"
+                    # Extra safety: redact common token-looking strings even if passed positionally.
+                    if isinstance(v, str):
+                        if v.startswith("ghp_") or v.startswith("github_pat_") or v.startswith("Bearer "):
+                            return "<redacted>"
+                    return v
+
+                args_repr = [repr(_redact("", a)) for a in args]
+                kwargs_repr = [f"{k}={_redact(k, v)!r}" for k, v in kwargs.items()]
                 signature = ", ".join(args_repr + kwargs_repr)
 
                 logger.debug(f"function {func.__qualname__}.{func.__name__} called with args {signature}")

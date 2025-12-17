@@ -100,7 +100,7 @@ variable "force_push_bypassers" {
 }
 
 variable "push_restrictions" {
-  description = "Optional: restrict who can push. Use '/username' or 'org/team'. Empty means no restriction."
+  description = "Optional: restrict who can push (GitHub branch protection restrict_pushes.push_allowances). Use '/username' or 'org/team' or node_id. Empty means no restriction."
   type        = list(string)
   default     = []
 }

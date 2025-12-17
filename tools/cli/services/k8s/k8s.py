@@ -277,6 +277,21 @@ class KubeClient:
         """
         return self._get_custom_object(namespace, name, "cert-manager.io", "v1", "certificates")
 
+    @trace()
+    def has_crd(self, crd_name: str) -> bool:
+        """
+        Returns True if the given CustomResourceDefinition exists in the cluster.
+        Useful to guard optional dependencies (e.g. cert-manager).
+        """
+        api = client.ApiextensionsV1Api(client.ApiClient(self._configuration))
+        try:
+            api.read_custom_resource_definition(crd_name)
+            return True
+        except ApiException as e:
+            if getattr(e, "status", None) == 404:
+                return False
+            raise
+
     def _get_custom_object(self, namespace: str, name: str, group: str, version: str, plurals: str):
         """
         Reads a custom object.

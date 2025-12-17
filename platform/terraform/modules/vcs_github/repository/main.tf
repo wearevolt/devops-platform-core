@@ -42,7 +42,14 @@ resource "github_branch_protection" "this" {
   require_conversation_resolution = true
 
   force_push_bypassers = var.force_push_bypassers
-  push_restrictions    = var.push_restrictions
+  # Restrict who can push (optional). This matches the provider schema:
+  # restrict_pushes { push_allowances = [...] }
+  dynamic "restrict_pushes" {
+    for_each = length(var.push_restrictions) > 0 ? [true] : []
+    content {
+      push_allowances = var.push_restrictions
+    }
+  }
 
   # required_status_checks {
   #   strict   = false
