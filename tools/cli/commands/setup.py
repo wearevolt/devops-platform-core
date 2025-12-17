@@ -90,6 +90,10 @@ from services.vcs.git_provider_manager import GitProviderManager
               multiple=True)
 @click.option('--image-registry-auth', '-ra', 'image_registry_auth', help='Image registry auth map')
 @click.option('--config-file', '-f', 'config', help='Load parameters from file', type=click.File(mode='r'))
+@click.option('--list-checkpoints', is_flag=True, default=False,
+              help='List available setup checkpoints and exit')
+@click.option('--from-checkpoint', 'from_checkpoint', type=click.STRING, default=None,
+              help='Restart setup from a checkpoint (clears that checkpoint and all following from local state)')
 @click.option('--verbosity', type=click.Choice(
     ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
     case_sensitive=False
@@ -99,7 +103,8 @@ def setup(
         cloud_region: str, cluster_name: str, dns_reg: DnsRegistrars, dns_reg_token: str,
         dns_reg_key: str, dns_reg_secret: str, domain: str, git_provider: GitProviders, git_org: str, git_token: str,
         gitops_repo_name: str, gitops_template_url: str, gitops_template_branch: str, install_demo: bool,
-        optional_services: List[str], image_registry_auth, config: click.File, verbosity: str
+        optional_services: List[str], image_registry_auth, config: click.File,
+        list_checkpoints: bool, from_checkpoint: str | None, verbosity: str
 ):
     """Creates new CG DevX installation."""
     click.echo("Setup CG DevX installation...")
@@ -108,6 +113,27 @@ def setup(
 
     # Set up global logger
     configure_logging(verbosity)
+
+    available_checkpoints = [
+        "preflight",
+        "dependencies",
+        "one-time-setup",
+        "repo-prep",
+        "vcs-tf",
+        "k8s-tf",
+        "gitops-vcs",
+        "k8s-delivery",
+        "secrets-management",
+        "secrets-management-tf",
+        "users-tf",
+        "core-services-tf",
+        "tf-store-hardening",
+    ]
+
+    if list_checkpoints:
+        for c in available_checkpoints:
+            click.echo(c)
+        return True
 
     p: StateStore
     if config is not None:
@@ -148,6 +174,15 @@ def setup(
             OPTIONAL_SERVICES: optional_services,
             IMAGE_REGISTRY_AUTH: reg_auth
         })
+
+    # allow restarting from an arbitrary checkpoint via CLI (idempotent)
+    if from_checkpoint:
+        if from_checkpoint not in available_checkpoints:
+            raise click.ClickException(
+                f"Unknown checkpoint '{from_checkpoint}'. Use --list-checkpoints to see available checkpoints."
+            )
+        p.remove_checkpoints_from(from_checkpoint, inclusive=True)
+        p.save_checkpoint()
 
     # validate parameters
     if not p.validate_input_params(validator=setup_param_validator):
@@ -482,22 +517,23 @@ def setup(
     else:
         click.echo("6/12: Skipped K8s provisioning.")
 
-    if not p.has_checkpoint("gitops-vcs"):
-        click.echo("7/12: Pushing GitOps code...")
+    # Always ensure GitOps repo content is up-to-date (idempotent).
+    # This guarantees placeholders are re-parametrised and pushed even when restarting from later checkpoints.
+    click.echo("7/12: Ensuring GitOps code is up-to-date...")
 
-        tm.parametrise(p)
+    tm.parametrise(p)
 
-        tm.upload(p.parameters["<GIT_REPOSITORY_GIT_URL>"],
-                  p.internals["DEFAULT_SSH_PRIVATE_KEY_PATH"],
-                  p.internals["GIT_USER_NAME"],
-                  p.internals["GIT_USER_EMAIL"])
+    tm.upload(
+        p.parameters["<GIT_REPOSITORY_GIT_URL>"],
+        p.internals["DEFAULT_SSH_PRIVATE_KEY_PATH"],
+        p.internals["GIT_USER_NAME"],
+        p.internals["GIT_USER_EMAIL"],
+    )
 
-        p.set_checkpoint("gitops-vcs")
-        p.save_checkpoint()
+    p.set_checkpoint("gitops-vcs")
+    p.save_checkpoint()
 
-        click.echo("7/12: Pushing GitOps code. Done!")
-    else:
-        click.echo("7/12: Skipped GitOps repo initialization.")
+    click.echo("7/12: GitOps code is up-to-date. Done!")
 
     # install ArgoCD
     if not p.has_checkpoint("k8s-delivery"):
@@ -683,8 +719,8 @@ def setup(
             # wait for vault readiness (handle delayed creation)
             vault_ss = None
             for attempt in range(40):  # ~10 minutes with 15s intervals
-            try:
-                vault_ss = kube_client.get_stateful_set_objects(VAULT_NAMESPACE, "vault")
+                try:
+                    vault_ss = kube_client.get_stateful_set_objects(VAULT_NAMESPACE, "vault")
                     break
                 except Exception:
                     time.sleep(15)
@@ -998,9 +1034,9 @@ def show_credentials(p):
     
     try:
         vault_client = hvac.Client(url=f'https://{vault_url}', token=vault_token)
-    res = vault_client.secrets.kv.v2.read_secret(path=f"/{user_name}", mount_point='users/')
-    if "data" in res:
-        user_pass = res["data"]["data"]["initial-password"]
+        res = vault_client.secrets.kv.v2.read_secret(path=f"/{user_name}", mount_point='users/')
+        if "data" in res:
+            user_pass = res["data"]["data"]["initial-password"]
         else:
             user_pass = "<not available>"
     except Exception as e:

@@ -93,11 +93,33 @@ class StateStore:
 
     @classmethod
     def set_checkpoint(cls, name: str):
-        cls._store[STATE_CHECKPOINTS].append(name)
+        # Make checkpoint setting idempotent
+        if name not in cls._store[STATE_CHECKPOINTS]:
+            cls._store[STATE_CHECKPOINTS].append(name)
 
     @classmethod
     def has_checkpoint(cls, name: str):
         return name in cls._store[STATE_CHECKPOINTS]
+
+    @classmethod
+    def list_checkpoints(cls) -> list[str]:
+        return list(cls._store.get(STATE_CHECKPOINTS, []))
+
+    @classmethod
+    def clear_checkpoints(cls):
+        cls._store[STATE_CHECKPOINTS] = []
+
+    @classmethod
+    def remove_checkpoints_from(cls, checkpoint: str, inclusive: bool = True):
+        """
+        Remove checkpoints from the stored list starting from a checkpoint.
+        If inclusive=True, the checkpoint itself is removed as well.
+        """
+        cps = list(cls._store.get(STATE_CHECKPOINTS, []))
+        if checkpoint not in cps:
+            return
+        idx = cps.index(checkpoint)
+        cls._store[STATE_CHECKPOINTS] = cps[: idx if inclusive else idx + 1]
 
     @classmethod
     def save_checkpoint(cls):
