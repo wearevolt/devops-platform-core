@@ -1,6 +1,7 @@
 import os
 import pathlib
 import shutil
+import re
 from pathlib import Path
 from urllib.error import HTTPError
 
@@ -146,6 +147,9 @@ class GitOpsTemplateManager:
     @trace()
     def parametrise_tf(self, state: StateStore):
         self.__file_replace(state, LOCAL_TF_FOLDER)
+        # Some generated repos may already contain hardcoded Terraform backends (no placeholders).
+        # Make backend bucket selection idempotent by overwriting backend blocks based on current state.
+        self.__rewrite_tf_backends(state, LOCAL_TF_FOLDER)
 
     @trace()
     def parametrise(self, state: StateStore):
@@ -168,6 +172,63 @@ class GitOpsTemplateManager:
                             file.write(data)
         except Exception as e:
             raise Exception(f"Error while parametrizing file: {file_path}", e)
+
+    @staticmethod
+    def __rewrite_tf_backends(state: StateStore, tf_root: Path):
+        """
+        Ensure terraform backend blocks in terraform/*/*.tf always use the currently selected backend bucket.
+
+        This is required because some repos may have backends hardcoded (no '# <TF_*_REMOTE_BACKEND>' placeholders),
+        which would otherwise keep stale bucket names forever.
+        """
+        # Map service folder -> fragment key in state.fragments
+        fragment_by_service = {
+            "vcs": "# <TF_VCS_REMOTE_BACKEND>",
+            "hosting_provider": "# <TF_HOSTING_REMOTE_BACKEND>",
+            "secrets": "# <TF_SECRETS_REMOTE_BACKEND>",
+            "users": "# <TF_USERS_REMOTE_BACKEND>",
+            "core_services": "# <TF_CORE_SERVICES_REMOTE_BACKEND>",
+        }
+
+        backend_re = re.compile(r'(?:^|\n)(?P<indent>[ \t]*)backend\s+"s3"\s*\{[\s\S]*?\n(?P=indent)\}', re.MULTILINE)
+
+        for service_dir in tf_root.iterdir():
+            if not service_dir.is_dir():
+                continue
+            service = service_dir.name
+            fragment_key = fragment_by_service.get(service)
+            if not fragment_key:
+                continue
+            replacement = state.fragments.get(fragment_key)
+            if not replacement:
+                continue
+
+            for tf_file in service_dir.rglob("*.tf"):
+                try:
+                    raw = tf_file.read_text()
+                except Exception:
+                    continue
+
+                m = backend_re.search(raw)
+                if not m:
+                    continue
+
+                indent = m.group("indent") or ""
+                # Indent replacement to match existing backend indentation
+                repl_lines = []
+                for i, line in enumerate(replacement.splitlines()):
+                    if i == 0:
+                        repl_lines.append(f"{indent}{line.rstrip()}")
+                    else:
+                        repl_lines.append(f"{indent}{line.rstrip()}" if line.strip() else line)
+                repl = "\n" + "\n".join(repl_lines)
+
+                updated = backend_re.sub(repl, raw, count=1)
+                if updated != raw:
+                    try:
+                        tf_file.write_text(updated)
+                    except Exception:
+                        continue
 
 
 class ProgressPrinter(RemoteProgress):
