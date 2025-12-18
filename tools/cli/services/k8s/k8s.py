@@ -582,3 +582,27 @@ class KubeClient:
             return base64.b64decode(res.data['password']).decode("utf-8")
         except ApiException as e:
             raise e
+
+    @trace()
+    def get_secret_kv_decoded(self, namespace: str, name: str) -> dict:
+        """
+        Get all secret data keys decoded as UTF-8 strings.
+
+        Useful for Secrets that store multiple values (e.g., vault-unseal-secret).
+        Returns {} if the secret does not exist.
+        """
+        api_v1_instance = client.CoreV1Api(client.ApiClient(self._configuration))
+        try:
+            res = api_v1_instance.read_namespaced_secret(name=name, namespace=namespace)
+        except ApiException:
+            return {}
+
+        data = res.data or {}
+        decoded = {}
+        for k, v in data.items():
+            try:
+                decoded[k] = base64.b64decode(v).decode("utf-8")
+            except Exception:
+                # Keep best-effort behavior; skip undecodable entries.
+                continue
+        return decoded

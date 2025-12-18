@@ -13,4 +13,9 @@ module "gitops-repo" {
   cd_webhook_url               = var.cd_webhook_url
   cd_webhook_secret            = var.cd_webhook_secret
   vcs_subscription_plan        = var.vcs_subscription_plan
+
+  # ArgoCD fetches GitOps repo over SSH; attach the same public key as a deploy key to guarantee access.
+  # NOTE: for best security, this should be a dedicated read-only key, but we reuse the bot key for now.
+  deploy_key_public_key = var.vcs_bot_ssh_public_key
+  deploy_key_read_only  = false
 }

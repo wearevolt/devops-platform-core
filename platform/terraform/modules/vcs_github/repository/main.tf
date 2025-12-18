@@ -27,6 +27,17 @@ resource "github_repository" "repo" {
 
 }
 
+# Ensure ArgoCD can fetch the repo via SSH.
+# ArgoCD uses an SSH private key stored in a repo-creds Secret; this must correspond to a public deploy key
+# attached to the repository, otherwise ArgoCD will fail with ssh handshake/auth errors.
+resource "github_repository_deploy_key" "argocd" {
+  count      = var.deploy_key_public_key != "" ? 1 : 0
+  title      = "${var.repo_name}-argocd"
+  repository = github_repository.repo.name
+  key        = var.deploy_key_public_key
+  read_only  = var.deploy_key_read_only
+}
+
 # Protect the main branch of the repository. Additionally, require
 # only allow the engineers team merge to the branch.
 

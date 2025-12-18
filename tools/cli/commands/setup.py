@@ -916,25 +916,48 @@ def setup(
             # use k8s console client
             wait(30)
             kctl = KctlWrapper(p.internals["KCTL_CONFIG_PATH"])
-            try:
-                out = kctl.exec("vault-0", "-- vault operator init", container="vault", namespace=VAULT_NAMESPACE)
-            except Exception as e:
-                raise click.ClickException(f"Could not unseal vault: {e}")
-            bar()
+            # Idempotency: if Vault is already initialized (common on reruns), reuse existing
+            # vault-unseal-secret and continue.
+            vault_root_token = None
+            existing_vault_secret = kube_client.get_secret_kv_decoded(VAULT_NAMESPACE, "vault-unseal-secret")
+            if existing_vault_secret.get("root-token"):
+                vault_root_token = [existing_vault_secret["root-token"]]
+                # keep progress bar shape (init step)
+                bar()
+            else:
+                try:
+                    out = kctl.exec("vault-0", "-- vault operator init", container="vault", namespace=VAULT_NAMESPACE)
+                    bar()
+                except Exception as e:
+                    err = str(e)
+                    if "Vault is already initialized" in err or "already initialized" in err:
+                        # Secret should exist; if it doesn't, we can't proceed automatically.
+                        existing_vault_secret = kube_client.get_secret_kv_decoded(VAULT_NAMESPACE, "vault-unseal-secret")
+                        if existing_vault_secret.get("root-token"):
+                            vault_root_token = [existing_vault_secret["root-token"]]
+                            bar()
+                        else:
+                            raise click.ClickException(
+                                "Vault is already initialized, but 'vault-unseal-secret' was not found in the cluster. "
+                                "Cannot continue idempotently without a root token."
+                            )
+                    else:
+                        raise click.ClickException(f"Could not init/unseal vault: {e}")
 
-            vault_keys = re.findall("^Recovery\\sKey\\s(?P<index>\\d):\\s(?P<key>.+)$", out, re.MULTILINE)
-            vault_root_token = re.findall("^Initial\\sRoot\\sToken:\\s(?P<token>.+)$", out, re.MULTILINE)
+                if vault_root_token is None:
+                    vault_keys = re.findall("^Recovery\\sKey\\s(?P<index>\\d):\\s(?P<key>.+)$", out, re.MULTILINE)
+                    vault_root_token = re.findall("^Initial\\sRoot\\sToken:\\s(?P<token>.+)$", out, re.MULTILINE)
 
-            if not vault_root_token:
-                raise click.ClickException("Could not unseal vault")
+                    if not vault_root_token:
+                        raise click.ClickException("Could not parse Vault root token from init output")
 
-            vault_secret = {
-                "root-token": vault_root_token[0]
-            }
-            for i, v in vault_keys:
-                vault_secret[f"root-unseal-key-{i}"] = v
+                    vault_secret = {"root-token": vault_root_token[0]}
+                    for i, v in vault_keys:
+                        vault_secret[f"root-unseal-key-{i}"] = v
 
-            kube_client.create_plain_secret(VAULT_NAMESPACE, "vault-unseal-secret", vault_secret)
+                    kube_client.create_plain_secret(VAULT_NAMESPACE, "vault-unseal-secret", vault_secret)
+
+            # keep progress bar shape (secret creation step)
             bar()
 
         p.internals["VAULT_ROOT_TOKEN"] = vault_root_token[0]

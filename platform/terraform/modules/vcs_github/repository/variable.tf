@@ -104,3 +104,15 @@ variable "push_restrictions" {
   type        = list(string)
   default     = []
 }
+
+variable "deploy_key_public_key" {
+  description = "Public key to attach as a repository deploy key (used by ArgoCD repo-creds SSH key)."
+  type        = string
+  default     = ""
+}
+
+variable "deploy_key_read_only" {
+  description = "Whether the deploy key should be read-only. If the same SSH key is also used for pushes, this must be false."
+  type        = bool
+  default     = false
+}
